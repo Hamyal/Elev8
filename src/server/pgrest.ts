@@ -32,7 +32,18 @@ import { withRole, type DbRole } from "./db";
  */
 export type Executor = (text: string, values: unknown[]) => Promise<QueryResult>;
 
-export type PgRestError = { message: string; code?: string | undefined; details?: string | undefined };
+export type PgRestError = {
+  message: string;
+  code?: string | undefined;
+  details?: string | undefined;
+};
+/**
+ * Rows come back untyped on purpose. The generated Supabase database types
+ * went with Supabase, and the ATS server functions already cast each result to
+ * the shape they expect at the call site — so narrowing here would mean
+ * inventing a type system this adapter has no way to verify.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type PgRestResult<T = any> = { data: T; error: PgRestError | null };
 
 const ident = (name: string) => {
@@ -84,6 +95,7 @@ function isJsonValue(value: unknown): boolean {
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 class QueryBuilder<T = any> implements PromiseLike<PgRestResult<T>> {
   private readonly exec: Executor;
   private readonly table: string;
@@ -403,6 +415,8 @@ export type PgRestClient = {
 
 /** Wraps one transaction-bound pg client in the builder API. */
 export function pgRest(client: PoolClient): PgRestClient {
+  // pg types query parameters as any[]; the values are built by this module.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const exec: Executor = (text, values) => client.query(text, values as any[]);
   return {
     from: (table: string) => new QueryBuilder(exec, table),
@@ -417,6 +431,7 @@ export function pgRest(client: PoolClient): PgRestClient {
  */
 export function pgRestAuto(role: DbRole, userId: string | null = null): PgRestClient {
   const exec: Executor = (text, values) =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     withRole(role, userId, (client) => client.query(text, values as any[]));
   return {
     from: (table: string) => new QueryBuilder(exec, table),

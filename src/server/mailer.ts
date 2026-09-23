@@ -42,7 +42,9 @@ async function smtpTransport() {
     const nodemailer = await import("nodemailer");
     return nodemailer.createTransport(url);
   } catch {
-    console.warn("[mail] SMTP_URL is set but nodemailer is not installed; falling back to console.");
+    console.warn(
+      "[mail] SMTP_URL is set but nodemailer is not installed; falling back to console.",
+    );
     return null;
   }
 }
@@ -77,8 +79,9 @@ async function send(message: Message, fallbackLink: string): Promise<MailResult>
 }
 
 const escapeHtml = (value: string) =>
-  value.replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  value.replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
   );
 
 /**

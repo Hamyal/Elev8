@@ -25,6 +25,8 @@ import {
 } from "./harness";
 import { asServiceRole } from "@srv/db";
 import { normalizeStatus, normalizeMilestone } from "../src/lib/ats-workflow";
+import { canTextApplicant } from "../src/lib/sms-consent";
+import { ROLE_CAPABILITIES, ROLE_KEYS, can, homeFor } from "../src/lib/permissions";
 import {
   hashPassword,
   verifyPassword,
@@ -60,16 +62,19 @@ for (const [user, expected] of [
   [hr, { staff: true, review: true }],
   [viewer, { staff: true, review: false }],
 ] as const) {
-  const row = await asServiceRole(async (c) =>
-    (
-      await c.query("select public.is_staff($1) as staff, public.can_review($1) as review", [user.id])
-    ).rows[0],
+  const row = await asServiceRole(
+    async (c) =>
+      (
+        await c.query("select public.is_staff($1) as staff, public.can_review($1) as review", [
+          user.id,
+        ])
+      ).rows[0],
   );
   equal(`${user.role}: is_staff / can_review`, { staff: row.staff, review: row.review }, expected);
 }
 
-const strangerRow = await asServiceRole(async (c) =>
-  (await c.query("select public.is_staff($1) as staff", [STRANGER])).rows[0],
+const strangerRow = await asServiceRole(
+  async (c) => (await c.query("select public.is_staff($1) as staff", [STRANGER])).rows[0],
 );
 equal("a non-staff account is not staff", strangerRow.staff, false);
 
@@ -77,7 +82,10 @@ equal("a non-staff account is not staff", strangerRow.staff, false);
 section("Authentication");
 
 const hashed = await hashPassword("correct horse battery staple");
-check("a password hash is salted and versioned", hashed.startsWith("scrypt$") && hashed.split("$").length === 3);
+check(
+  "a password hash is salted and versioned",
+  hashed.startsWith("scrypt$") && hashed.split("$").length === 3,
+);
 check("the right password verifies", await verifyPassword("correct horse battery staple", hashed));
 check("a wrong password does not verify", !(await verifyPassword("wrong", hashed)));
 check("a null hash never verifies", !(await verifyPassword("anything", null)));
@@ -87,19 +95,34 @@ const authUser = await upsertUser("auth-test@test.invalid", "Auth Test");
 users.push(authUser.user.id);
 check("upsertUser creates a new account", authUser.created);
 const again = await upsertUser("AUTH-TEST@test.invalid", "Auth Test");
-check("upsertUser is case-insensitive and does not duplicate", !again.created && again.user.id === authUser.user.id);
+check(
+  "upsertUser is case-insensitive and does not duplicate",
+  !again.created && again.user.id === authUser.user.id,
+);
 
 await setPassword(authUser.user.id, "a-very-long-password");
 const signedIn = await signIn("auth-test@test.invalid", "a-very-long-password");
 check("sign in with the right password succeeds", !!signedIn);
-check("sign in is case-insensitive on email", !!(await signIn("Auth-Test@TEST.invalid", "a-very-long-password")));
-check("sign in with a wrong password fails", (await signIn("auth-test@test.invalid", "nope")) === null);
-check("sign in with an unknown email fails", (await signIn("nobody@test.invalid", "whatever")) === null);
+check(
+  "sign in is case-insensitive on email",
+  !!(await signIn("Auth-Test@TEST.invalid", "a-very-long-password")),
+);
+check(
+  "sign in with a wrong password fails",
+  (await signIn("auth-test@test.invalid", "nope")) === null,
+);
+check(
+  "sign in with an unknown email fails",
+  (await signIn("nobody@test.invalid", "whatever")) === null,
+);
 
 const session = await createSession(authUser.user.id);
 const resolved = await userFromSession(session);
 check("a session token resolves to its user", resolved?.id === authUser.user.id);
-check("an unknown session token resolves to nothing", (await userFromSession("not-a-token")) === null);
+check(
+  "an unknown session token resolves to nothing",
+  (await userFromSession("not-a-token")) === null,
+);
 check("an empty token resolves to nothing", (await userFromSession(null)) === null);
 
 await signOut(session);
@@ -118,16 +141,28 @@ check("an expired session does not resolve", (await userFromSession(expiring)) =
 const inviteToken = await issueToken(authUser.user.id, "invite");
 const redeemed = await redeemToken(inviteToken, "brand-new-password");
 check("an invite token can be redeemed", redeemed?.user.id === authUser.user.id);
-check("redeeming signs the person in", !!redeemed?.token && !!(await userFromSession(redeemed!.token)));
-check("an invite token is single-use", (await redeemToken(inviteToken, "another-password")) === null);
+check(
+  "redeeming signs the person in",
+  !!redeemed?.token && !!(await userFromSession(redeemed!.token)),
+);
+check(
+  "an invite token is single-use",
+  (await redeemToken(inviteToken, "another-password")) === null,
+);
 check("an unknown token is refused", (await redeemToken("made-up", "another-password")) === null);
 check("the new password works", !!(await signIn("auth-test@test.invalid", "brand-new-password")));
-check("the old password no longer works", (await signIn("auth-test@test.invalid", "a-very-long-password")) === null);
+check(
+  "the old password no longer works",
+  (await signIn("auth-test@test.invalid", "a-very-long-password")) === null,
+);
 
 // Issuing a fresh token must retire the previous one.
 const firstToken = await issueToken(authUser.user.id, "recovery");
 const secondToken = await issueToken(authUser.user.id, "recovery");
-check("a newer link retires the older one", (await redeemToken(firstToken, "x-password-x")) === null);
+check(
+  "a newer link retires the older one",
+  (await redeemToken(firstToken, "x-password-x")) === null,
+);
 check("the newest link still works", (await redeemToken(secondToken, "y-password-y")) !== null);
 
 // Setting a password must end other sessions.
@@ -158,10 +193,14 @@ await expectFail(
   /permission denied/i,
 );
 
-const strangerRead = await as("authenticated", STRANGER, (db) => db.from("applications").select("id"));
+const strangerRead = await as("authenticated", STRANGER, (db) =>
+  db.from("applications").select("id"),
+);
 equal("a signed-in non-staff user sees no applications", strangerRead.data?.length, 0);
 
-const viewerRead = await as("authenticated", viewer.id, (db) => db.from("applications").select("id"));
+const viewerRead = await as("authenticated", viewer.id, (db) =>
+  db.from("applications").select("id"),
+);
 check("a Viewer can read applications", (viewerRead.data?.length ?? 0) > 0);
 
 await expectFail(
@@ -197,7 +236,10 @@ await expectFail(
   "authenticated",
   STRANGER,
   (db) =>
-    db.rpc("set_application_milestone", { _application_id: app.id, _milestone_key: "initial_outreach" }),
+    db.rpc("set_application_milestone", {
+      _application_id: app.id,
+      _milestone_key: "initial_outreach",
+    }),
   /not authorized/i,
 );
 
@@ -213,7 +255,11 @@ const pipeline = await track(createApplication("Pipeline"), applications);
 let state = await applicationState(pipeline.id);
 equal("a new application is stored as 'submitted'", state.status, "submitted");
 equal("which the app reads as 'New'", normalizeStatus(state.status), "new");
-equal("starting on the first milestone", normalizeMilestone(state.current_milestone), "application_received");
+equal(
+  "starting on the first milestone",
+  normalizeMilestone(state.current_milestone),
+  "application_received",
+);
 
 await expectOk("assign the applicant to a staff member", "authenticated", admin.id, (db) =>
   db.rpc("assign_application", { _application_id: pipeline.id, _staff_id: hr.id }),
@@ -271,7 +317,11 @@ for (const [key, label] of steps) {
   );
 }
 state = await applicationState(pipeline.id);
-equal("screening ends on the decision step", state.current_milestone, "screening_decision_recorded");
+equal(
+  "screening ends on the decision step",
+  state.current_milestone,
+  "screening_decision_recorded",
+);
 
 // ---------------------------------------------------------------------------
 section("Hiring pipeline: Interview #1");
@@ -374,7 +424,10 @@ const booked = await as("authenticated", hr.id, (db) =>
 );
 check(
   "the booking is reflected on the board",
-  booked.data?.some((r: { application_id: string; booked: boolean }) => r.application_id === pipeline.id && r.booked),
+  booked.data?.some(
+    (r: { application_id: string; booked: boolean }) =>
+      r.application_id === pipeline.id && r.booked,
+  ),
 );
 
 await expectOk("record the proposed interview window", "authenticated", hr.id, (db) =>
@@ -484,7 +537,10 @@ const materialsId = (materials.data as { send_interview_materials: string }[])?.
   ?.send_interview_materials;
 if (materialsId) {
   await expectOk("the applicant's acknowledgment can be recorded", "authenticated", hr.id, (db) =>
-    db.rpc("acknowledge_interview_materials", { _materials_id: materialsId, _note: "Confirmed by text" }),
+    db.rpc("acknowledge_interview_materials", {
+      _materials_id: materialsId,
+      _note: "Confirmed by text",
+    }),
   );
 }
 
@@ -661,7 +717,10 @@ await expectOk("jumping with a reason is allowed", "authenticated", hr.id, (db) 
 );
 state = await applicationState(jump.id);
 equal("the jump moved the record", state.current_milestone, "offer_extended");
-check("the jump is logged as a manual move", (await eventTypes(jump.id)).includes("milestone_jumped"));
+check(
+  "the jump is logged as a manual move",
+  (await eventTypes(jump.id)).includes("milestone_jumped"),
+);
 
 await expectOk("jumping backwards is allowed", "authenticated", hr.id, (db) =>
   db.rpc("jump_to_milestone", {
@@ -707,20 +766,25 @@ await expectOk("a closed application can be reopened with a reason", "authentica
   }),
 );
 state = await applicationState(guard.id);
-check("the reopened application is no longer closed", state.status !== "not_selected", state.status);
+check(
+  "the reopened application is no longer closed",
+  state.status !== "not_selected",
+  state.status,
+);
 
 // ---------------------------------------------------------------------------
 section("HR review flags");
 
 const flagged = await track(createApplication("Flagged"), applications);
-const flagId = await asServiceRole(async (c) =>
-  (
-    await c.query(
-      `insert into public.hr_review_flags (application_id, question, answer)
+const flagId = await asServiceRole(
+  async (c) =>
+    (
+      await c.query(
+        `insert into public.hr_review_flags (application_id, question, answer)
        values ($1, 'Do you have a criminal record?', 'Yes') returning id`,
-      [flagged.id],
-    )
-  ).rows[0].id,
+        [flagged.id],
+      )
+    ).rows[0].id,
 );
 
 await expectFail(
@@ -752,7 +816,8 @@ await expectFail(
   "a Viewer cannot resolve a flag",
   "authenticated",
   viewer.id,
-  (db) => db.rpc("set_hr_flag_review", { _flag_id: flagId, _flag_status: "Discussed", _hr_notes: "" }),
+  (db) =>
+    db.rpc("set_hr_flag_review", { _flag_id: flagId, _flag_status: "Discussed", _hr_notes: "" }),
   /not authorized/i,
 );
 
@@ -762,7 +827,10 @@ section("File access logging");
 await expectOk("opening a file is recorded", "authenticated", hr.id, (db) =>
   db.rpc("record_file_access", { _application_id: pipeline.id, _file_category: "Application PDF" }),
 );
-check("the file access appears in the activity log", (await eventTypes(pipeline.id)).includes("file_accessed"));
+check(
+  "the file access appears in the activity log",
+  (await eventTypes(pipeline.id)).includes("file_accessed"),
+);
 
 // ---------------------------------------------------------------------------
 section("Public intake");
@@ -774,7 +842,11 @@ const contact = await as("service_role", null, (db) =>
     .select("id")
     .single(),
 );
-check("the contact form records a submission", !contact.error && !!contact.data?.id, contact.error?.message);
+check(
+  "the contact form records a submission",
+  !contact.error && !!contact.data?.id,
+  contact.error?.message,
+);
 if (contact.data?.id) {
   await asServiceRole((c) =>
     c.query("delete from public.contact_submissions where id = $1", [contact.data.id]),
@@ -800,6 +872,359 @@ if (decline.data?.id) {
     c.query("delete from public.sms_consent_declines where id = $1", [decline.data.id]),
   );
 }
+
+// ---------------------------------------------------------------------------
+section("Directory roles must not reach applicant data");
+
+// The whole point of migration 20260922140100: an Employee or a Caretaker has
+// an account, but the applicant database is not theirs to see.
+const employee = await track(createStaff("employee", "employee"), users);
+const caretaker = await track(createStaff("caretaker", "caretaker"), users);
+
+for (const person of [employee, caretaker]) {
+  const row = await asServiceRole(
+    async (c) =>
+      (
+        await c.query(
+          "select public.is_staff($1) as staff, public.is_active_account($1) as account, public.can_review($1) as review",
+          [person.id],
+        )
+      ).rows[0],
+  );
+  equal(
+    `${person.role}: has an account but no ATS access`,
+    { staff: row.staff, account: row.account, review: row.review },
+    { staff: false, account: true, review: false },
+  );
+
+  const seen = await as("authenticated", person.id, (db) => db.from("applications").select("id"));
+  equal(`${person.role}: sees no applications`, seen.data?.length, 0);
+
+  const notes = await as("authenticated", person.id, (db) =>
+    db.from("application_notes").select("id"),
+  );
+  equal(`${person.role}: sees no private notes`, notes.data?.length, 0);
+
+  await expectFail(
+    `${person.role}: cannot change a milestone`,
+    "authenticated",
+    person.id,
+    (db) =>
+      db.rpc("set_application_milestone", {
+        _application_id: pipeline.id,
+        _milestone_key: "initial_outreach",
+      }),
+    /not authorized/i,
+  );
+}
+
+// The hiring roles are unaffected by the change.
+for (const person of [admin, hr, viewer]) {
+  const staff = await asServiceRole(
+    async (c) => (await c.query("select public.is_staff($1) as ok", [person.id])).rows[0].ok,
+  );
+  equal(`${person.role}: still has ATS access`, staff, true);
+}
+
+// ---------------------------------------------------------------------------
+section("Admin: user and role management");
+
+const managed = await track(createStaff("viewer", "managed"), users);
+
+// The database is the boundary, so these exercise the policies directly.
+await expectOk("an Admin can change another user's role", "authenticated", admin.id, async (db) => {
+  await db.from("user_roles").delete().eq("user_id", managed.id);
+  return db.from("user_roles").insert({ user_id: managed.id, role: "hr" });
+});
+
+const after = await asServiceRole(
+  async (c) =>
+    (await c.query("select role from public.user_roles where user_id = $1", [managed.id])).rows,
+);
+equal(
+  "the new role replaced the old one",
+  after.map((r: { role: string }) => r.role),
+  ["hr"],
+);
+
+const nowReviewer = await asServiceRole(
+  async (c) => (await c.query("select public.can_review($1) as ok", [managed.id])).rows[0].ok,
+);
+equal("the promoted user can now review", nowReviewer, true);
+
+// Row-level security filters rather than raises: a delete that matches no
+// permitted row reports success having changed nothing. So the meaningful
+// assertion is the outcome, not an error.
+await as("authenticated", admin.id, (db) => db.from("user_roles").delete().eq("user_id", admin.id));
+const ownRoleSurvived = await asServiceRole(async (c) =>
+  Number(
+    (
+      await c.query("select count(*)::int as n from public.user_roles where user_id = $1", [
+        admin.id,
+      ])
+    ).rows[0].n,
+  ),
+);
+check("an Admin cannot delete their own role", ownRoleSurvived === 1, `${ownRoleSurvived} rows`);
+check(
+  "so the Admin keeps their access",
+  await asServiceRole(
+    async (c) => (await c.query("select public.has_role($1,'admin') as ok", [admin.id])).rows[0].ok,
+  ),
+);
+
+await expectFail(
+  "HR cannot change anyone's role",
+  "authenticated",
+  hr.id,
+  (db) => db.from("user_roles").insert({ user_id: managed.id, role: "admin" }),
+  /policy|denied|violates/i,
+);
+
+await expectFail(
+  "a Viewer cannot grant themselves Admin",
+  "authenticated",
+  viewer.id,
+  (db) => db.from("user_roles").insert({ user_id: viewer.id, role: "admin" }),
+  /policy|denied|violates/i,
+);
+
+await expectOk("an Admin can rename a staff member", "authenticated", admin.id, (db) =>
+  db.from("staff_profiles").update({ full_name: "Renamed Person" }).eq("user_id", managed.id),
+);
+const renamed = await asServiceRole(
+  async (c) =>
+    (await c.query("select full_name from public.staff_profiles where user_id = $1", [managed.id]))
+      .rows[0].full_name,
+);
+equal("the new name was saved", renamed, "Renamed Person");
+
+await as("authenticated", hr.id, (db) =>
+  db.from("staff_profiles").update({ full_name: "Nope" }).eq("user_id", managed.id),
+);
+const unchanged = await asServiceRole(
+  async (c) =>
+    (await c.query("select full_name from public.staff_profiles where user_id = $1", [managed.id]))
+      .rows[0].full_name,
+);
+equal("HR cannot rename a staff member", unchanged, "Renamed Person");
+
+await expectOk("an Admin can promote a Caretaker to HR", "authenticated", admin.id, async (db) => {
+  await db.from("user_roles").delete().eq("user_id", caretaker.id);
+  return db.from("user_roles").insert({ user_id: caretaker.id, role: "hr" });
+});
+equal(
+  "the promoted account now has ATS access",
+  await asServiceRole(
+    async (c) => (await c.query("select public.is_staff($1) as ok", [caretaker.id])).rows[0].ok,
+  ),
+  true,
+);
+
+await expectOk("an Admin can demote them back", "authenticated", admin.id, async (db) => {
+  await db.from("user_roles").delete().eq("user_id", caretaker.id);
+  return db.from("user_roles").insert({ user_id: caretaker.id, role: "caretaker" });
+});
+equal(
+  "and the access is withdrawn again",
+  await asServiceRole(
+    async (c) => (await c.query("select public.is_staff($1) as ok", [caretaker.id])).rows[0].ok,
+  ),
+  false,
+);
+
+await expectOk("an Admin can deactivate a staff member", "authenticated", admin.id, (db) =>
+  db.from("staff_profiles").update({ is_active: false }).eq("user_id", managed.id),
+);
+const deactivated = await asServiceRole(
+  async (c) =>
+    (await c.query("select is_active from public.staff_profiles where user_id = $1", [managed.id]))
+      .rows[0].is_active,
+);
+equal("the account is deactivated", deactivated, false);
+
+// ---------------------------------------------------------------------------
+section("Permission model");
+
+// Admin is "everything" by construction, not by special case.
+for (const capability of ROLE_CAPABILITIES.admin) {
+  void capability;
+}
+equal(
+  "Admin holds every capability",
+  ROLE_CAPABILITIES.admin.length,
+  ROLE_KEYS.length ? ROLE_CAPABILITIES.admin.length : 0,
+);
+check(
+  "Admin is missing nothing",
+  ROLE_CAPABILITIES.admin.length === new Set(ROLE_CAPABILITIES.admin).size &&
+    [
+      "ats.view",
+      "admin.manageUsers",
+      "admin.assignRoles",
+      "admin.settings",
+      "self.updateOwn",
+    ].every((c) => can(["admin"], c as never)),
+);
+
+check(
+  "HR manages hiring but not users",
+  can(["hr"], "ats.manageStages") && !can(["hr"], "admin.manageUsers"),
+);
+check("HR sees HR flags", can(["hr"], "ats.hrFlags"));
+check(
+  "Viewer reads but cannot edit",
+  can(["viewer"], "ats.view") && !can(["viewer"], "ats.manageApplicants"),
+);
+check("Viewer cannot change stages", !can(["viewer"], "ats.manageStages"));
+check("Viewer cannot manage users", !can(["viewer"], "admin.manageUsers"));
+check("Viewer never sees private HR flag notes", !can(["viewer"], "ats.hrFlags"));
+check("Employee has no applicant access", !can(["employee"], "ats.view"));
+check("Employee cannot reach admin settings", !can(["employee"], "admin.settings"));
+check("Employee can update their own information", can(["employee"], "self.updateOwn"));
+check("Caretaker has no applicant access", !can(["caretaker"], "ats.view"));
+check("Caretaker cannot reach admin settings", !can(["caretaker"], "admin.settings"));
+check("Caretaker can complete assigned tasks", can(["caretaker"], "self.tasks"));
+
+equal("hiring roles land in the ATS", homeFor(["hr"]), "/team-portal/applicants");
+equal("directory roles land on their account", homeFor(["caretaker"]), "/team-portal/account");
+
+// The model must agree with what the database actually enforces.
+for (const role of ROLE_KEYS) {
+  const person = await track(createStaff(role, `perm-${role}`), users);
+  const enforced = await asServiceRole(
+    async (c) =>
+      (
+        await c.query("select public.is_staff($1) as ats, public.can_review($1) as review", [
+          person.id,
+        ])
+      ).rows[0],
+  );
+  equal(`${role}: model and database agree on ATS access`, enforced.ats, can([role], "ats.view"));
+  equal(
+    `${role}: model and database agree on write access`,
+    enforced.review,
+    can([role], "ats.manageApplicants"),
+  );
+}
+
+// ---------------------------------------------------------------------------
+section("Self-service");
+
+const selfUser = await track(createStaff("caretaker", "selfserve"), users);
+
+await expectOk("anyone can read their own account", "authenticated", selfUser.id, (db) =>
+  db.rpc("my_account"),
+);
+
+const mine = await as("authenticated", selfUser.id, (db) => db.rpc("my_account"));
+equal("it returns exactly one row — their own", mine.data?.length, 1);
+equal("with their roles", mine.data?.[0]?.roles, ["caretaker"]);
+
+await expectOk("anyone can correct their own name", "authenticated", selfUser.id, (db) =>
+  db.rpc("update_own_profile", { _full_name: "  Corrected Name  " }),
+);
+equal(
+  "the name is trimmed and saved",
+  await asServiceRole(
+    async (c) =>
+      (await c.query("select full_name from public.staff_profiles where user_id=$1", [selfUser.id]))
+        .rows[0].full_name,
+  ),
+  "Corrected Name",
+);
+
+await expectFail(
+  "an empty name is refused",
+  "authenticated",
+  selfUser.id,
+  (db) => db.rpc("update_own_profile", { _full_name: "   " }),
+  /enter your full name/i,
+);
+
+// Self-service must not become a way to edit someone else.
+const otherBefore = await asServiceRole(
+  async (c) =>
+    (await c.query("select full_name from public.staff_profiles where user_id=$1", [hr.id])).rows[0]
+      .full_name,
+);
+await as("authenticated", selfUser.id, (db) =>
+  db.from("staff_profiles").update({ full_name: "Hijacked" }).eq("user_id", hr.id),
+);
+equal(
+  "a Caretaker cannot rename anyone else",
+  await asServiceRole(
+    async (c) =>
+      (await c.query("select full_name from public.staff_profiles where user_id=$1", [hr.id]))
+        .rows[0].full_name,
+  ),
+  otherBefore,
+);
+
+const seenByOther = await as("authenticated", selfUser.id, (db) =>
+  db.from("staff_profiles").select("user_id"),
+);
+equal("and sees only their own profile row", seenByOther.data?.length, 1);
+
+// ---------------------------------------------------------------------------
+section("Text-message consent");
+
+// Consent is optional: an application must be storable either way.
+const withConsent = await asServiceRole(async (c) => {
+  const { rows } = await c.query(
+    `insert into public.applications
+       (reference, first_name, last_name, email, phone, sms_consent, sms_consent_at)
+     values ($1, 'Consenting', 'Applicant', 'yes@test.invalid', '5550001111', true, now())
+     returning id`,
+    [`TST-C-${Date.now().toString().slice(-7)}`],
+  );
+  return rows[0].id as string;
+});
+applications.push(withConsent);
+check("an application with consent is accepted", !!withConsent);
+
+const withoutConsent = await asServiceRole(async (c) => {
+  const { rows } = await c.query(
+    `insert into public.applications
+       (reference, first_name, last_name, email, phone, sms_consent)
+     values ($1, 'Declining', 'Applicant', 'no@test.invalid', '5550002222', false)
+     returning id`,
+    [`TST-N-${Date.now().toString().slice(-7)}`],
+  );
+  return rows[0].id as string;
+});
+applications.push(withoutConsent);
+check("an application WITHOUT consent is accepted too", !!withoutConsent);
+
+// Both are ordinary applications, visible to staff and workable.
+const visible = await as("authenticated", hr.id, (db) =>
+  db.from("applications").select("id, sms_consent").in("id", [withConsent, withoutConsent]),
+);
+equal("both appear in the staff queue", visible.data?.length, 2);
+
+await expectOk(
+  "an applicant without text consent can still be advanced",
+  "authenticated",
+  hr.id,
+  (db) =>
+    db.rpc("set_application_milestone", {
+      _application_id: withoutConsent,
+      _milestone_key: "initial_outreach",
+    }),
+);
+
+// canTextApplicant is the single gate on actually sending.
+check(
+  "may text: consent given, not opted out",
+  canTextApplicant({ sms_consent: true, sms_opt_out_at: null }),
+);
+check("must not text: no consent", !canTextApplicant({ sms_consent: false, sms_opt_out_at: null }));
+check("must not text: consent missing", !canTextApplicant({}));
+check("must not text: consent null", !canTextApplicant({ sms_consent: null }));
+check(
+  "must not text: consented then opted out",
+  !canTextApplicant({ sms_consent: true, sms_opt_out_at: new Date().toISOString() }),
+);
 
 // ---------------------------------------------------------------------------
 await cleanup(applications, users);

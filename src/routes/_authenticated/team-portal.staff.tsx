@@ -3,7 +3,15 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ArrowLeft, Loader2, ShieldCheck } from "lucide-react";
-import { inviteStaffWithLink, listStaff, resendStaffInvite, setStaffActive } from "@/lib/ats.functions";
+import { ROLE_KEYS, ROLE_LABELS, ROLE_SUMMARIES, type RoleKey } from "@/lib/permissions";
+import {
+  inviteStaffWithLink,
+  listStaff,
+  resendStaffInvite,
+  setStaffActive,
+  setStaffRole,
+  updateStaffProfile,
+} from "@/lib/ats.functions";
 
 export const Route = createFileRoute("/_authenticated/team-portal/staff")({
   head: () => ({
@@ -27,7 +35,7 @@ export const Route = createFileRoute("/_authenticated/team-portal/staff")({
   component: StaffAccess,
 });
 
-const ROLES = ["admin", "hr", "viewer"] as const;
+const ROLES = ROLE_KEYS;
 
 function StaffAccess() {
   const queryClient = useQueryClient();
@@ -39,10 +47,23 @@ function StaffAccess() {
 
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
-  const [role, setRole] = useState<(typeof ROLES)[number]>("hr");
+  const [role, setRole] = useState<RoleKey>("hr");
+  // "Invited" is not a stored state — it is what an enabled account looks like
+  // before its owner sets a password. So the form asks the two real questions:
+  // is the account enabled, and do we send the link now.
+  const [status, setStatus] = useState<"active" | "invited" | "disabled">("invited");
 
   const inviteMutation = useMutation({
-    mutationFn: () => invite({ data: { email: email.trim(), fullName, role } }),
+    mutationFn: () =>
+      invite({
+        data: {
+          email: email.trim(),
+          fullName,
+          role,
+          enabled: status !== "disabled",
+          sendInvitation: status !== "disabled",
+        },
+      }),
     onSuccess: () => {
       setEmail("");
       setFullName("");
@@ -53,6 +74,24 @@ function StaffAccess() {
   const activeMutation = useMutation({
     mutationFn: (input: { userId: string; active: boolean }) => setActive({ data: input }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["ats", "staff"] }),
+  });
+
+  const changeRole = useServerFn(setStaffRole);
+  const roleMutation = useMutation({
+    mutationFn: (input: { userId: string; role: (typeof ROLES)[number] }) =>
+      changeRole({ data: input }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["ats", "staff"] }),
+  });
+
+  const saveProfile = useServerFn(updateStaffProfile);
+  // Which row is being renamed, and the name being typed into it.
+  const [editing, setEditing] = useState<{ userId: string; fullName: string } | null>(null);
+  const profileMutation = useMutation({
+    mutationFn: (input: { userId: string; fullName: string }) => saveProfile({ data: input }),
+    onSuccess: () => {
+      setEditing(null);
+      queryClient.invalidateQueries({ queryKey: ["ats", "staff"] });
+    },
   });
 
   const resend = useServerFn(resendStaffInvite);
@@ -108,16 +147,41 @@ function StaffAccess() {
             />
           </label>
           <label className="text-sm font-semibold text-primary">
-            Access level
+            Role
             <select
               value={role}
-              onChange={(e) => setRole(e.currentTarget.value as (typeof ROLES)[number])}
+              onChange={(e) => setRole(e.currentTarget.value as RoleKey)}
               className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2.5 text-base font-normal text-foreground outline-none focus:border-teal focus:ring-2 focus:ring-teal/30"
             >
-              <option value="admin">Admin</option>
-              <option value="hr">HR</option>
-              <option value="viewer">Viewer</option>
+              {ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_LABELS[r]}
+                </option>
+              ))}
             </select>
+            <span className="mt-1.5 block text-xs font-normal leading-relaxed text-muted-foreground">
+              {ROLE_SUMMARIES[role]}
+            </span>
+          </label>
+
+          <label className="text-sm font-semibold text-primary">
+            Status
+            <select
+              value={status}
+              onChange={(e) =>
+                setStatus(e.currentTarget.value as "active" | "invited" | "disabled")
+              }
+              className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2.5 text-base font-normal text-foreground outline-none focus:border-teal focus:ring-2 focus:ring-teal/30"
+            >
+              <option value="invited">Invited — send the set-password link now</option>
+              <option value="active">Active — send the link now</option>
+              <option value="disabled">Disabled — create the account, send nothing</option>
+            </select>
+            <span className="mt-1.5 block text-xs font-normal leading-relaxed text-muted-foreground">
+              {status === "disabled"
+                ? "The account is created but cannot sign in. Invite them later from the list."
+                : "They show as Invited until they set a password, then Active."}
+            </span>
           </label>
           <div className="sm:col-span-2">
             <button
@@ -128,7 +192,7 @@ function StaffAccess() {
               {inviteMutation.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : null}
-              Send invitation
+              {status === "disabled" ? "Create account" : "Send invitation"}
             </button>
             {inviteMutation.isSuccess && !inviteMutation.error ? (
               <p className="mt-2 text-sm font-semibold text-status-completed">
@@ -166,18 +230,89 @@ function StaffAccess() {
               key={member.userId}
               className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4"
             >
-              <div>
-                <p className="text-sm font-bold text-primary">
-                  {member.fullName || member.email}
-                  {member.isSelf ? " (you)" : ""}
-                </p>
-                <p className="text-sm text-muted-foreground">
+              <div className="min-w-0">
+                {editing?.userId === member.userId ? (
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      if (editing.fullName.trim()) profileMutation.mutate(editing);
+                    }}
+                    className="flex flex-wrap items-center gap-2"
+                  >
+                    <input
+                      autoFocus
+                      value={editing.fullName}
+                      onChange={(e) =>
+                        setEditing({ userId: member.userId, fullName: e.currentTarget.value })
+                      }
+                      aria-label={`Full name for ${member.email}`}
+                      className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm text-foreground outline-none focus:border-teal focus:ring-2 focus:ring-teal/30"
+                    />
+                    <button
+                      type="submit"
+                      disabled={profileMutation.isPending}
+                      className="btn-solid px-4 py-1.5 text-sm disabled:opacity-60"
+                    >
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditing(null)}
+                      className="btn-ghost-navy px-4 py-1.5 text-sm"
+                    >
+                      Cancel
+                    </button>
+                  </form>
+                ) : (
+                  <p className="text-sm font-bold text-primary">
+                    {member.fullName || member.email}
+                    {member.isSelf ? " (you)" : ""}
+                  </p>
+                )}
+                <p className="mt-0.5 text-sm text-muted-foreground">
                   {member.email} &middot;{" "}
-                  {member.roles.length ? member.roles.join(", ") : "no role assigned"} &middot;{" "}
-                  {member.active ? "active" : "deactivated"}
+                  {member.roles.length
+                    ? member.roles.map((r) => ROLE_LABELS[r as RoleKey] ?? r).join(", ")
+                    : "no role assigned"}{" "}
+                  &middot; {member.statusLabel}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* An admin cannot change their own role or access — the
+                    database enforces this too, so the last admin cannot lock
+                    everyone out of staff management. */}
+                {member.isSelf ? null : (
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <span className="sr-only">Role for {member.email}</span>
+                    <select
+                      value={member.roles[0] ?? ""}
+                      disabled={roleMutation.isPending}
+                      onChange={(e) =>
+                        roleMutation.mutate({
+                          userId: member.userId,
+                          role: e.currentTarget.value as RoleKey,
+                        })
+                      }
+                      className="rounded-lg border border-border bg-card px-3 py-2 text-sm font-semibold text-primary outline-none focus:border-teal focus:ring-2 focus:ring-teal/30"
+                    >
+                      {member.roles.length ? null : <option value="">no role</option>}
+                      {ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {ROLE_LABELS[r]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEditing({ userId: member.userId, fullName: member.fullName ?? "" })
+                  }
+                  className="btn-ghost-navy px-5 py-2 text-sm"
+                >
+                  Rename
+                </button>
                 <button
                   type="button"
                   disabled={resendMutation.isPending}

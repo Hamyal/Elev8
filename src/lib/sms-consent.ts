@@ -6,21 +6,62 @@
  * string must be incremented whenever the disclosure text below is edited.
  */
 
-export const APPLICATION_VERSION = "2026-08-31";
+export const APPLICATION_VERSION = "2026-09-22b";
 
-export const SMS_CONSENT_QUESTION = "Text communication requirement";
+/** Where an applicant reaches a person about messages or their data. */
+export const SUPPORT_EMAIL = "info@arfsd.com";
+
+/* --------------------------------------------------------------------------
+ * A2P 10DLC disclosures.
+ *
+ * Carrier campaign review expects the program name, what is sent, how often,
+ * that rates may apply, and both the STOP and HELP keywords -- shown beside
+ * the opt-in and repeated in the public Terms. These constants are the single
+ * source for all three places, so the wording cannot drift apart.
+ * ------------------------------------------------------------------------ */
+
+export const SMS_PROGRAM_NAME = "Elev8 Services Application Updates";
+
+export const SMS_PROGRAM_DESCRIPTION =
+  "Elev8 Services California sends text messages to applicants about their own application: scheduling and confirmations, interview details, deadlines, and status updates. These are not marketing messages.";
+
+export const SMS_MESSAGE_FREQUENCY =
+  "Message frequency varies with the stage of your application, and is typically fewer than 10 messages per month.";
+
+export const SMS_RATES_NOTICE = "Message and data rates may apply.";
+
+export const SMS_STOP_REPLY = "Reply STOP at any time to stop receiving text messages.";
+
+export const SMS_HELP_REPLY = "Reply HELP for help.";
+
+export const SMS_CONSENT_QUESTION = "Text message consent (optional)";
 
 export const SMS_CONSENT_INTRO =
-  "Elev8 Services uses text messaging for time-sensitive communication throughout the application, interview, hiring, and onboarding process.";
+  "Elev8 Services uses text messaging for time-sensitive communication throughout the application, interview, hiring, and onboarding process. Agreeing is optional — if you would rather not receive text messages, we will contact you by phone or email instead, and your application is considered exactly the same way.";
 
 export const SMS_CONSENT_PROMPT =
-  "Do you agree to receive application-related text messages from Elev8 Services at the mobile number you provided?";
+  "Would you like to receive application-related text messages from Elev8 Services?";
 
-export const SMS_CONSENT_RATES =
-  "Message and data rates may apply. Message frequency varies. You may reply STOP to discontinue text messages.";
+/**
+ * The checkbox label.
+ *
+ * Carrier review expects an unchecked, optional checkbox whose label alone
+ * says who is messaging and about what — not a yes/no question whose meaning
+ * depends on text elsewhere on the page.
+ */
+export const SMS_CONSENT_AGREE =
+  "I agree to receive application-related text messages from Elev8 Services California at the mobile number I provided.";
 
-export const SMS_CONSENT_YES = "Yes, I agree to receive application-related text messages.";
-export const SMS_CONSENT_NO = "No, I do not agree.";
+/** Recorded when the box is left unchecked, so the choice is documented either way. */
+export const SMS_CONSENT_NOT_GIVEN = "Not selected — no text-message consent given.";
+
+/** Shown directly beneath the consent question. */
+export const SMS_CONSENT_RATES = [
+  SMS_MESSAGE_FREQUENCY,
+  SMS_RATES_NOTICE,
+  SMS_STOP_REPLY,
+  SMS_HELP_REPLY,
+].join(" ");
 
 /** The full disclosure exactly as displayed, archived with each record. */
 export const SMS_CONSENT_TEXT = [
@@ -28,16 +69,8 @@ export const SMS_CONSENT_TEXT = [
   SMS_CONSENT_INTRO,
   SMS_CONSENT_PROMPT,
   SMS_CONSENT_RATES,
-  SMS_CONSENT_YES,
-  SMS_CONSENT_NO,
+  SMS_CONSENT_AGREE,
 ].join("\n\n");
-
-/** Applicant-facing card shown when text messaging is declined. */
-export const SMS_DECLINE_REASON =
-  "Text messaging is a required communication method throughout our application, interview, hiring, and onboarding process because we use it for time-sensitive scheduling, confirmations, deadlines, and updates.";
-
-export const SMS_DECLINE_CLOSING =
-  "Based on your response, you cannot continue with the application. We appreciate your interest in Elev8 Services.";
 
 /**
  * Single gate for every automated text message. A message may only be sent when

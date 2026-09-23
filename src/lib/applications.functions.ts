@@ -60,10 +60,9 @@ export const submitApplication = createServerFn({ method: "POST" })
       throw new Error(
         "Testing-mode submissions are not accepted: no application record or notification is created.",
       );
-    if (data.sms_consent && !data.sms_consent.agreed)
-      throw new Error(
-        "The application cannot be submitted without agreement to receive application-related text messages.",
-      );
+    // Text-message consent is optional. Both answers are accepted and stored;
+    // canTextApplicant() in src/lib/sms-consent.ts is what decides whether a
+    // message may actually be sent.
     const { adminDb: supabaseAdmin } = await import("@/server/admin");
     const { buildApplicationReference, nextAvailableReference } = await import(
       "@/lib/application-reference"

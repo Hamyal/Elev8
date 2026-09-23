@@ -35,8 +35,7 @@ const key = await scrypt(password, salt, 64);
 const encrypted = `scrypt$${salt.toString("hex")}$${key.toString("hex")}`;
 
 const client = new pg.Client({
-  connectionString:
-    process.env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5433/elev8",
+  connectionString: process.env.DATABASE_URL ?? "postgres://postgres:postgres@localhost:5433/elev8",
 });
 await client.connect();
 

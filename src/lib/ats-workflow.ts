@@ -422,6 +422,17 @@ export function buildSlotOfferMessage(input: {
   return lines.join("\n");
 }
 
+/**
+ * Opt-out and help keywords, carried on the first message an applicant
+ * receives.
+ *
+ * A2P 10DLC review expects the recipient to be told how to stop and how to get
+ * help within the conversation itself, not only at the point of consent. It is
+ * appended to the initial outreach because that is the first message sent; add
+ * it to a later template too if carrier feedback asks for it.
+ */
+export const SMS_KEYWORDS_LINE = "Reply STOP to opt out. Reply HELP for help.";
+
 export function buildTemplate(key: TemplateKey, input: TemplateInput): string {
   const name = firstName(input.applicantName || "Applicant Name");
   const deadlineSentence = input.deadline
@@ -441,6 +452,7 @@ export function buildTemplate(key: TemplateKey, input: TemplateInput): string {
         deadlineSentence,
         "",
         sign,
+        SMS_KEYWORDS_LINE,
       ].join("\n");
     case "second_outreach":
       return [

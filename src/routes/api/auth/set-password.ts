@@ -30,7 +30,10 @@ export const Route = createFileRoute("/api/auth/set-password")({
         const result = await redeemToken(parsed.data.token, parsed.data.password);
         if (!result) {
           return Response.json(
-            { error: "That link has expired or has already been used. Ask an administrator to send a new one." },
+            {
+              error:
+                "That link has expired or has already been used. Ask an administrator to send a new one.",
+            },
             { status: 400 },
           );
         }

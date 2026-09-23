@@ -283,10 +283,13 @@ function ApplicantsDashboard() {
                 : "checking access…"}
             </span>
             {access.data?.isAdmin ? (
-              <Link to="/team-portal/staff" className="font-semibold text-teal underline underline-offset-4">
-                Manage staff access
+              <Link to="/team-portal/admin" className="font-semibold text-teal underline underline-offset-4">
+                Admin
               </Link>
             ) : null}
+            <Link to="/team-portal/account" className="font-semibold text-teal underline underline-offset-4">
+              My account
+            </Link>
           </div>
           <button
             type="button"

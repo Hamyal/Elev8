@@ -32,7 +32,11 @@ export function check(label: string, ok: boolean, detail = "") {
 
 export function equal(label: string, actual: unknown, expected: unknown) {
   const ok = JSON.stringify(actual) === JSON.stringify(expected);
-  record(label, ok, ok ? "" : `expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`);
+  record(
+    label,
+    ok,
+    ok ? "" : `expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`,
+  );
 }
 
 /** Runs a block as the given identity, in a transaction of its own. */
@@ -75,11 +79,7 @@ export async function expectFail(
       return;
     }
     const matches = expectedMessage.test(result.error.message);
-    record(
-      label,
-      matches,
-      matches ? "" : `refused, but with: "${result.error.message}"`,
-    );
+    record(label, matches, matches ? "" : `refused, but with: "${result.error.message}"`);
   } catch (error) {
     const message = (error as Error).message;
     record(label, expectedMessage.test(message), `threw: ${message}`);
@@ -88,7 +88,11 @@ export async function expectFail(
 
 // --- fixtures ---------------------------------------------------------------
 
-export type TestUser = { id: string; email: string; role: "admin" | "hr" | "viewer" };
+export type TestUser = {
+  id: string;
+  email: string;
+  role: "admin" | "hr" | "viewer" | "employee" | "caretaker";
+};
 
 /** Creates a staff account with the given role. */
 export async function createStaff(role: TestUser["role"], label: string): Promise<TestUser> {
@@ -166,7 +170,9 @@ export async function cleanup(applicationIds: string[], userIds: string[]) {
 export async function finish() {
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${"─".repeat(60)}`);
-  console.log(`${results.length} checks, ${results.length - failed.length} passed, ${failed.length} failed`);
+  console.log(
+    `${results.length} checks, ${results.length - failed.length} passed, ${failed.length} failed`,
+  );
   if (failed.length) {
     console.log("\nFailures:");
     for (const f of failed) console.log(`  - ${f.label}\n      ${f.detail}`);

@@ -2,6 +2,8 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Eye, EyeOff, Loader2, LogOut, UserRound } from "lucide-react";
 import { getSessionUser, signIn, signOut } from "@/lib/auth-client";
+import { getMyAccount } from "@/lib/ats.functions";
+import { homeFor } from "@/lib/permissions";
 
 export const Route = createFileRoute("/team-portal/")({
   head: () => ({
@@ -54,7 +56,14 @@ function TeamPortalSignIn() {
       setError(signInError);
       return;
     }
-    navigate({ to: "/team-portal/applicants" });
+    // An Employee or Caretaker has no applicant access, so send each role to
+    // the first page it can actually open.
+    try {
+      const me = await getMyAccount();
+      navigate({ to: homeFor(me.roles) });
+    } catch {
+      navigate({ to: "/team-portal/account" });
+    }
   }
 
   async function handleSignOut() {
@@ -79,10 +88,14 @@ function TeamPortalSignIn() {
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <button
                 type="button"
-                onClick={() => navigate({ to: "/team-portal/applicants" })}
+                onClick={() => {
+                  void getMyAccount()
+                    .then((me) => navigate({ to: homeFor(me.roles) }))
+                    .catch(() => navigate({ to: "/team-portal/account" }));
+                }}
                 className="btn-solid px-7 py-3.5 text-base"
               >
-                Open Applicant Tracking
+                Open Team Portal
               </button>
               <button
                 type="button"

@@ -99,7 +99,10 @@ export async function getUser(userId: string): Promise<AuthUser | null> {
  * Creates the account if the address is new, otherwise returns the existing
  * one. Mirrors the invite flow's tolerance of a repeated invitation.
  */
-export async function upsertUser(email: string, fullName: string): Promise<{ user: AuthUser; created: boolean }> {
+export async function upsertUser(
+  email: string,
+  fullName: string,
+): Promise<{ user: AuthUser; created: boolean }> {
   return asServiceRole(async (client) => {
     const existing = await client.query(
       `SELECT id, email, raw_user_meta_data->>'full_name' AS full_name
@@ -148,7 +151,10 @@ export async function setPassword(userId: string, password: string): Promise<voi
 // --- sessions ---------------------------------------------------------------
 
 /** Verifies credentials and opens a session. Null means "no match", without saying which half failed. */
-export async function signIn(email: string, password: string): Promise<{ token: string; user: AuthUser } | null> {
+export async function signIn(
+  email: string,
+  password: string,
+): Promise<{ token: string; user: AuthUser } | null> {
   const row = await asServiceRole(async (client) => {
     const { rows } = await client.query(
       `SELECT id, email, encrypted_password, raw_user_meta_data->>'full_name' AS full_name

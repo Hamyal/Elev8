@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { ROLE_KEYS } from "@/lib/permissions";
 import { z } from "zod";
 import { requireAuth } from "@/lib/auth-middleware";
 import {
@@ -40,6 +41,28 @@ const HIDDEN_ANSWER_LABELS = new Set([
   "Upload your First Aid and CPR certification",
 ]);
 
+
+export {
+  ROLE_KEYS,
+  ROLE_LABELS,
+  HIRING_ROLES,
+  type RoleKey,
+} from "@/lib/permissions";
+
+/**
+ * What an account's state is, derived rather than stored.
+ *
+ * Keeping one stored flag (is_active) and reading "Invited" from whether a
+ * password has been set avoids two sources of truth drifting apart — an
+ * account cannot be marked Active while its owner has never signed in.
+ */
+export type AccountStatus = "active" | "invited" | "disabled";
+
+export const STATUS_LABELS: Record<AccountStatus, string> = {
+  active: "Active",
+  invited: "Invited",
+  disabled: "Disabled",
+};
 
 export type StaffAccess = {
   roles: string[];
@@ -1241,7 +1264,7 @@ export const inviteStaff = createServerFn({ method: "POST" })
         email: z.string().email(),
         fullName: z.string().max(200).default(""),
         password: z.string().min(10).max(200),
-        role: z.enum(["admin", "hr", "viewer"]),
+        role: z.enum(ROLE_KEYS),
       })
       .parse(data),
   )
@@ -1292,19 +1315,39 @@ export const listStaff = createServerFn({ method: "GET" })
     for (const row of (roleRows ?? []) as { user_id: string; role: string }[]) {
       roleMap.set(row.user_id, [...(roleMap.get(row.user_id) ?? []), row.role]);
     }
+    // "Invited" means the account exists but its owner has never set a
+    // password. That lives on the auth record, which only the service role can
+    // read, so it is fetched separately rather than stored a second time.
+    const { asServiceRole } = await import("@/server/db");
+    const passwordSet = await asServiceRole(async (client) => {
+      const { rows } = await client.query(
+        "select id from auth.users where encrypted_password is not null",
+      );
+      return new Set((rows as { id: string }[]).map((r) => r.id));
+    });
+
     return ((profiles ?? []) as {
       user_id: string;
       full_name: string;
       email: string;
       is_active: boolean;
-    }[]).map((p) => ({
-      userId: p.user_id,
-      fullName: p.full_name,
-      email: p.email,
-      active: p.is_active,
-      roles: roleMap.get(p.user_id) ?? [],
-      isSelf: p.user_id === context.userId,
-    }));
+    }[]).map((p) => {
+      const status: AccountStatus = !p.is_active
+        ? "disabled"
+        : passwordSet.has(p.user_id)
+          ? "active"
+          : "invited";
+      return {
+        userId: p.user_id,
+        fullName: p.full_name,
+        email: p.email,
+        active: p.is_active,
+        status,
+        statusLabel: STATUS_LABELS[status],
+        roles: roleMap.get(p.user_id) ?? [],
+        isSelf: p.user_id === context.userId,
+      };
+    });
   });
 
 /** Admin-only: activate or deactivate another staff account. */
@@ -1325,6 +1368,228 @@ export const setStaffActive = createServerFn({ method: "POST" })
       .eq("user_id", data.userId);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+/**
+ * Admin-only: change another staff member's role.
+ *
+ * A role is a single choice, so this replaces whatever the account had rather
+ * than adding to it. The database policies already permitted this — see
+ * "Admins update roles of others" — but nothing exposed it, so a role could
+ * only ever be set at invitation time.
+ *
+ * An admin may not change their own role. That guard is in the policy as well
+ * as here: it stops the last admin removing their own access and locking
+ * everyone out of staff management.
+ */
+export const setStaffRole = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((data) =>
+    z
+      .object({
+        userId: z.string().uuid(),
+        role: z.enum(ROLE_KEYS),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase as unknown as LooseClient;
+    const roles = await requireStaff(supabase, context.userId);
+    if (!roles.includes("admin")) throw new Error("Only an Admin can change roles.");
+    if (data.userId === context.userId) throw new Error("You cannot change your own role.");
+
+    const { data: profile } = await supabase
+      .from("staff_profiles")
+      .select("user_id")
+      .eq("user_id", data.userId)
+      .maybeSingle();
+    if (!profile) throw new Error("That account is not a staff member.");
+
+    // Replace rather than accumulate: clear the old rows, then insert the one.
+    const { error: clearError } = await supabase
+      .from("user_roles")
+      .delete()
+      .eq("user_id", data.userId);
+    if (clearError) throw new Error(clearError.message);
+
+    const { error } = await supabase
+      .from("user_roles")
+      .insert({ user_id: data.userId, role: data.role });
+    if (error) throw new Error(error.message);
+
+    return { ok: true, role: data.role };
+  });
+
+/**
+ * Admin-only: correct a staff member's display name.
+ *
+ * The email address is deliberately not editable here — it is the account's
+ * identity and is what invitation and sign-in are keyed on, so changing it
+ * belongs with the auth record, not the profile.
+ */
+export const updateStaffProfile = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((data) =>
+    z.object({ userId: z.string().uuid(), fullName: z.string().min(1).max(200) }).parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase as unknown as LooseClient;
+    const roles = await requireStaff(supabase, context.userId);
+    if (!roles.includes("admin")) throw new Error("Only an Admin can edit staff accounts.");
+
+    const { error } = await supabase
+      .from("staff_profiles")
+      .update({ full_name: data.fullName.trim() })
+      .eq("user_id", data.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/* ------------------------------------------------------------------ *
+ * Self-service — available to every signed-in role
+ * ------------------------------------------------------------------ */
+
+export type MyAccount = {
+  userId: string;
+  fullName: string;
+  email: string;
+  active: boolean;
+  roles: string[];
+  capabilities: string[];
+};
+
+/**
+ * The signed-in person's own record. Deliberately not gated on a role: an
+ * Employee or a Caretaker has no applicant access but must still be able to
+ * see and correct their own details.
+ */
+export const getMyAccount = createServerFn({ method: "GET" })
+  .middleware([requireAuth])
+  .handler(async ({ context }): Promise<MyAccount> => {
+    const supabase = context.supabase as unknown as LooseClient;
+    const { data, error } = await supabase.rpc("my_account");
+    if (error) throw new Error(error.message);
+
+    const row = ((data ?? []) as {
+      user_id: string;
+      full_name: string | null;
+      email: string;
+      is_active: boolean;
+      roles: string[] | null;
+    }[])[0];
+    if (!row) throw new Error("No account record was found for you.");
+
+    const { capabilitiesFor } = await import("@/lib/permissions");
+    const roles = row.roles ?? [];
+    return {
+      userId: row.user_id,
+      fullName: row.full_name ?? "",
+      email: row.email,
+      active: row.is_active,
+      roles,
+      capabilities: capabilitiesFor(roles),
+    };
+  });
+
+/** Corrects the signed-in person's own display name. */
+export const updateOwnProfile = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((data) => z.object({ fullName: z.string().min(1).max(200) }).parse(data))
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase as unknown as LooseClient;
+    const { error } = await supabase.rpc("update_own_profile", { _full_name: data.fullName });
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/**
+ * Changes the signed-in person's own password.
+ *
+ * The current password is required: a session alone is not proof of identity
+ * on a shared machine, and without it a walk-up attacker could lock the owner
+ * out of their own account.
+ */
+export const changeOwnPassword = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((data) =>
+    z
+      .object({
+        currentPassword: z.string().min(1).max(200),
+        newPassword: z.string().min(12).max(200),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const { signIn, setPassword } = await import("@/server/auth");
+    const user = context.user as { email: string };
+
+    const verified = await signIn(user.email, data.currentPassword);
+    if (!verified) throw new Error("That is not your current password.");
+
+    // setPassword ends every existing session, including this one, so the
+    // caller is signed out and must sign in again with the new password.
+    await setPassword(context.userId, data.newPassword);
+    return { ok: true };
+  });
+
+/* ------------------------------------------------------------------ *
+ * Admin dashboard
+ * ------------------------------------------------------------------ */
+
+export type AdminOverview = {
+  users: { total: number; active: number; invited: number; disabled: number };
+  byRole: { role: string; count: number }[];
+  applicants: { total: number; open: number; needsReview: number };
+};
+
+/** Counts for the admin dashboard. Admin only. */
+export const getAdminOverview = createServerFn({ method: "GET" })
+  .middleware([requireAuth])
+  .handler(async ({ context }): Promise<AdminOverview> => {
+    const supabase = context.supabase as unknown as LooseClient;
+    const roles = await requireStaff(supabase, context.userId);
+    if (!roles.includes("admin")) throw new Error("Only an Admin can view this dashboard.");
+
+    const { asServiceRole } = await import("@/server/db");
+    return asServiceRole(async (client) => {
+      const { rows: userRows } = await client.query(`
+        select sp.is_active,
+               (u.encrypted_password is not null) as has_password
+          from public.staff_profiles sp
+          join auth.users u on u.id = sp.user_id
+      `);
+      const users = {
+        total: userRows.length,
+        active: userRows.filter((r) => r.is_active && r.has_password).length,
+        invited: userRows.filter((r) => r.is_active && !r.has_password).length,
+        disabled: userRows.filter((r) => !r.is_active).length,
+      };
+
+      const { rows: roleRows } = await client.query(`
+        select role::text as role, count(*)::int as count
+          from public.user_roles group by role order by role
+      `);
+
+      const { rows: appRows } = await client.query(`
+        select
+          count(*)::int as total,
+          count(*) filter (where status not in ('hired','not_selected'))::int as open
+        from public.applications
+      `);
+      const { rows: flagRows } = await client.query(`
+        select count(*)::int as n from public.hr_review_flags where flag_status = 'Needs Review'
+      `);
+
+      return {
+        users,
+        byRole: roleRows as { role: string; count: number }[],
+        applicants: {
+          total: appRows[0].total,
+          open: appRows[0].open,
+          needsReview: flagRows[0].n,
+        },
+      };
+    });
   });
 
 /* ------------------------------------------------------------------ *
@@ -1431,7 +1696,11 @@ export const inviteStaffWithLink = createServerFn({ method: "POST" })
       .object({
         email: z.string().email(),
         fullName: z.string().max(200).default(""),
-        role: z.enum(["admin", "hr", "viewer"]),
+        role: z.enum(ROLE_KEYS),
+        /** Disabled creates the account without enabling it. */
+        enabled: z.boolean().default(true),
+        /** Whether to send the set-password link now. */
+        sendInvitation: z.boolean().default(true),
       })
       .parse(data),
   )
@@ -1442,35 +1711,60 @@ export const inviteStaffWithLink = createServerFn({ method: "POST" })
     const { adminDb } = await import("@/server/admin");
     const admin = adminDb as unknown as LooseClient;
 
-    const result = await sendStaffInviteEmail(data.email, data.fullName);
+    // Creating the account and sending the link are separate steps, so an
+    // account can be prepared ahead of time and invited later.
+    let userId: string;
+    let invited = false;
+    let inviteNote = "";
 
-    const userId = result.userId;
-    if (!userId) {
-      throw new Error(
-        `The account could not be created: ${"error" in result ? result.error : "unknown error"}`,
-      );
+    if (data.sendInvitation) {
+      const result = await sendStaffInviteEmail(data.email, data.fullName);
+      if (!result.userId) {
+        throw new Error(
+          `The account could not be created: ${"error" in result ? result.error : "unknown error"}`,
+        );
+      }
+      userId = result.userId;
+      invited = result.sent;
+      if (!result.sent) {
+        inviteNote = ` The invitation email could not be sent: ${
+          "error" in result ? result.error : "unknown error"
+        }`;
+      } else if ("viaConsole" in result && result.viaConsole) {
+        inviteNote =
+          " Email is not configured, so the invitation link was written to the server log.";
+      }
+    } else {
+      const { upsertUser } = await import("@/server/auth");
+      const created = await upsertUser(data.email, data.fullName);
+      userId = created.user.id;
     }
 
     await admin
       .from("staff_profiles")
       .upsert(
-        { user_id: userId, email: data.email, full_name: data.fullName, is_active: true },
+        {
+          user_id: userId,
+          email: data.email,
+          full_name: data.fullName,
+          is_active: data.enabled,
+        },
         { onConflict: "user_id" },
       );
+    const { error: clearError } = await admin.from("user_roles").delete().eq("user_id", userId);
+    if (clearError) throw new Error(clearError.message);
     const { error: roleError } = await admin
       .from("user_roles")
       .insert({ user_id: userId, role: data.role });
     if (roleError && !/duplicate|unique/i.test(roleError.message)) throw new Error(roleError.message);
 
-    if (!result.sent) {
-      throw new Error(
-        `The account was created, but the invitation email could not be sent: ${"error" in result ? result.error : "unknown error"}`,
-      );
-    }
-    return {
-      userId,
-      message: `Invitation sent to ${data.email}. They can set their own password from the email link.`,
-    };
+    const message = !data.enabled
+      ? `Account created for ${data.email} and left disabled.${inviteNote}`
+      : invited
+        ? `Invitation sent to ${data.email}. They can set their own password from the email link.${inviteNote}`
+        : `Account created for ${data.email}. No invitation was sent yet.${inviteNote}`;
+
+    return { userId, message };
   });
 
 /** Admin-only: re-send the invitation / set-password email to a staff member. */

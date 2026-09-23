@@ -42,9 +42,7 @@ export function pool(): pg.Pool {
     max: Number(process.env["DATABASE_POOL_MAX"] ?? 10),
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
-    ...(process.env["DATABASE_SSL"] === "true"
-      ? { ssl: { rejectUnauthorized: false } }
-      : {}),
+    ...(process.env["DATABASE_SSL"] === "true" ? { ssl: { rejectUnauthorized: false } } : {}),
   });
 
   _pool.on("error", (error) => {

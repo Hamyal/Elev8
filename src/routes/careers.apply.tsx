@@ -48,14 +48,17 @@ import { recordHrFlags } from "@/lib/hr-flags";
 import {
   APPLICATION_VERSION,
   SMS_CONSENT_INTRO,
-  SMS_CONSENT_NO,
+  SMS_CONSENT_AGREE,
+  SMS_CONSENT_NOT_GIVEN,
   SMS_CONSENT_PROMPT,
   SMS_CONSENT_QUESTION,
   SMS_CONSENT_RATES,
   SMS_CONSENT_TEXT,
-  SMS_CONSENT_YES,
-  SMS_DECLINE_CLOSING,
-  SMS_DECLINE_REASON,
+  SMS_PROGRAM_DESCRIPTION,
+  SMS_MESSAGE_FREQUENCY,
+  SMS_RATES_NOTICE,
+  SMS_STOP_REPLY,
+  SMS_HELP_REPLY,
 } from "@/lib/sms-consent";
 import { recordDeclinedTextConsent } from "@/lib/sms-consent.functions";
 import {
@@ -247,7 +250,7 @@ type FieldDef = {
   policy?: string;
 
 
-  custom?: "holiday" | "pay" | "breaks" | "weekend" | "commitmentsIntro";
+  custom?: "holiday" | "pay" | "breaks" | "weekend" | "commitmentsIntro" | "smsConsent";
   /** Selects the weekend-specific rendering of the repeatable commitments field. */
   commitVariant?: "weekend";
   /** Selects the housing-absence rendering of the repeatable time-off field. */
@@ -2525,12 +2528,16 @@ Except for travel booked before your employment start date, reservations made wi
         key: "sms_consent",
         reviewLabel: SMS_CONSENT_QUESTION,
         label: SMS_CONSENT_PROMPT,
-        type: "radio",
-        required: true,
+        // An optional, unchecked checkbox rather than a required yes/no: text
+        // messages are a convenience, not a condition of applying, and carrier
+        // review expects consent to be separately and freely given.
+        type: "checkboxes",
+        custom: "smsConsent",
+        required: false,
         sectionBreak: true,
         sectionTitle: SMS_CONSENT_QUESTION,
-        help: `${SMS_CONSENT_INTRO}\n\n${SMS_CONSENT_RATES}`,
-        options: [SMS_CONSENT_YES, SMS_CONSENT_NO],
+        help: SMS_CONSENT_RATES,
+        options: [SMS_CONSENT_AGREE],
         group: "Review and Submit",
       },
       {
@@ -3156,42 +3163,10 @@ function ApplyPage() {
     }
   }, [hydrated, attemptId, previewed, dq, stepIdx, values]);
 
-  // Declining the text-communication requirement ends the application
-  // immediately, with no confirmation window and no applicant record. Only the
-  // minimum documentation of the incomplete attempt is preserved.
-  useEffect(() => {
-    if (dq || !attemptId) return;
-    if (str(values, "sms_consent") !== SMS_CONSENT_NO) return;
-    const record: DqRecord = {
-      attemptId,
-      question: SMS_CONSENT_QUESTION,
-      answer: SMS_CONSENT_NO,
-      reason: SMS_DECLINE_REASON,
-      closing: SMS_DECLINE_CLOSING,
-      buttonLabel: "Return to Internships & Careers",
-      at: new Date().toISOString(),
-    };
-    try {
-      sessionStorage.setItem(APPLICATION_DISQUALIFICATION_KEY, JSON.stringify(record));
-    } catch {
-      /* ignore */
-    }
-    setPendingDq(null);
-    setDq(record);
-    window.scrollTo({ top: 0 });
-    if (testMode) return;
-    void sendDeclineRecord({
-      data: {
-        attempt_id: attemptId,
-        phone: str(values, "phone"),
-        selection: SMS_CONSENT_NO,
-        consent_text: SMS_CONSENT_TEXT,
-        application_version: APPLICATION_VERSION,
-      },
-    }).catch(() => {
-      /* documenting the incomplete attempt must never block the applicant */
-    });
-  }, [values, dq, attemptId, testMode, sendDeclineRecord]);
+  // Text-message consent is optional: leaving the box unchecked simply means
+  // we will contact the applicant by phone or email instead. It no longer ends
+  // the application, so there is nothing to record here — the choice is stored
+  // on the submitted record either way.
 
 
   // When a disqualifying answer is selected, show the confirmation window
@@ -3855,17 +3830,18 @@ function ApplyPage() {
 
     // Text-communication consent: the selection, the exact language displayed,
     // the mobile number, the timestamp, and the application version are stored.
-    // Submission is only possible after the applicant agreed.
+    // Both answers are recorded — an unchecked box is a documented "no", not a
+    // missing value — and neither prevents the application from being sent.
     const smsConsentAt = new Date().toISOString();
+    const smsAgreed = arr(values, "sms_consent").includes(SMS_CONSENT_AGREE);
     const smsConsent = {
-      selection: str(values, "sms_consent"),
-      agreed: str(values, "sms_consent") === SMS_CONSENT_YES,
+      selection: smsAgreed ? SMS_CONSENT_AGREE : SMS_CONSENT_NOT_GIVEN,
+      agreed: smsAgreed,
       consent_text: SMS_CONSENT_TEXT,
       phone: str(values, "phone"),
       consented_at: smsConsentAt,
       application_version: APPLICATION_VERSION,
     };
-    if (!smsConsent.agreed) return;
     applicationData["sms_consent"] = smsConsent;
 
     // Certification uploads are stored as private storage paths on the record.
@@ -4772,6 +4748,63 @@ function BreaksCard() {
           arrangements are finalized.
         </p>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Text-message disclosure shown immediately above the consent question.
+ *
+ * A2P 10DLC campaign review expects the applicant to see what they are
+ * agreeing to, how often, that rates may apply, and both keywords -- with the
+ * Privacy Policy and Terms reachable from beside the opt-in itself rather than
+ * only from the footer. The links open in a new tab so a half-finished
+ * application is never navigated away from.
+ */
+function SmsConsentCard() {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+      <p className="text-xs font-bold uppercase tracking-[0.14em] text-teal">
+        Text messages about your application
+      </p>
+      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+        {SMS_PROGRAM_DESCRIPTION}
+      </p>
+      <ul className="mt-3 space-y-1.5 text-sm leading-relaxed text-muted-foreground">
+        <li>{SMS_MESSAGE_FREQUENCY}</li>
+        <li>{SMS_RATES_NOTICE}</li>
+        <li>
+          <span className="font-semibold text-primary">{SMS_STOP_REPLY}</span>{" "}
+          <span className="font-semibold text-primary">{SMS_HELP_REPLY}</span>
+        </li>
+      </ul>
+      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+        We never sell or share your mobile number, and we do not send marketing
+        text messages.
+      </p>
+      <p className="mt-3 rounded-lg bg-secondary px-3.5 py-3 text-sm font-semibold leading-relaxed text-primary">
+        This is optional. Leave it unchecked and we will contact you by phone or
+        email instead — your application is considered exactly the same way.
+      </p>
+      <p className="mt-3 text-sm">
+        <a
+          href="/privacy"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-primary underline hover:text-accent"
+        >
+          Privacy Policy
+        </a>
+        <span className="px-2 text-muted-foreground">|</span>
+        <a
+          href="/terms"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-semibold text-primary underline hover:text-accent"
+        >
+          Terms &amp; Conditions
+        </a>
+      </p>
     </div>
   );
 }
@@ -7719,6 +7752,7 @@ function FieldRenderer({
         {f.custom === "holiday" ? <HolidayCard /> : null}
         {f.custom === "breaks" ? <BreaksCard /> : null}
         {f.custom === "pay" ? <PayCard /> : null}
+        {f.custom === "smsConsent" ? <SmsConsentCard /> : null}
         <Fieldset id={id} legend={f.label} help={f.help} required={required} error={error}>
         {(f.options ?? []).map((opt) => {
           const info = f.optionInfo?.[opt];

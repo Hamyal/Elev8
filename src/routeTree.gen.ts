@@ -21,6 +21,7 @@ import { Route as ProgramsRouteImport } from './routes/programs'
 import { Route as ReferralsRouteImport } from './routes/referrals'
 import { Route as ServicesRouteImport } from './routes/services'
 import { Route as TeamPortalRouteImport } from './routes/team-portal'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ApiUploadCertificationRouteImport } from './routes/api/upload-certification'
 import { Route as CareersIndexRouteImport } from './routes/careers.index'
 import { Route as CareersApplyRouteImport } from './routes/careers.apply'
@@ -31,6 +32,8 @@ import { Route as ServicesResidentialRouteImport } from './routes/services.resid
 import { Route as ServicesSupportedLivingRouteImport } from './routes/services.supported-living'
 import { Route as TeamPortalIndexRouteImport } from './routes/team-portal.index'
 import { Route as TeamPortalSetPasswordRouteImport } from './routes/team-portal.set-password'
+import { Route as AuthenticatedTeamPortalAccountRouteImport } from './routes/_authenticated/team-portal.account'
+import { Route as AuthenticatedTeamPortalAdminRouteImport } from './routes/_authenticated/team-portal.admin'
 import { Route as AuthenticatedTeamPortalApplicantsRouteImport } from './routes/_authenticated/team-portal.applicants'
 import { Route as AuthenticatedTeamPortalStaffRouteImport } from './routes/_authenticated/team-portal.staff'
 import { Route as ApiAuthSessionRouteImport } from './routes/api/auth/session'
@@ -97,6 +100,11 @@ const TeamPortalRoute = TeamPortalRouteImport.update({
   path: '/team-portal',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiUploadCertificationRoute = ApiUploadCertificationRouteImport.update({
   id: '/api/upload-certification',
   path: '/api/upload-certification',
@@ -147,6 +155,18 @@ const TeamPortalSetPasswordRoute = TeamPortalSetPasswordRouteImport.update({
   path: '/set-password',
   getParentRoute: () => TeamPortalRoute,
 } as any)
+const AuthenticatedTeamPortalAccountRoute =
+  AuthenticatedTeamPortalAccountRouteImport.update({
+    id: '/team-portal/account',
+    path: '/team-portal/account',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedTeamPortalAdminRoute =
+  AuthenticatedTeamPortalAdminRouteImport.update({
+    id: '/team-portal/admin',
+    path: '/team-portal/admin',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedTeamPortalApplicantsRoute =
   AuthenticatedTeamPortalApplicantsRouteImport.update({
     id: '/team-portal/applicants',
@@ -192,6 +212,7 @@ export interface FileRoutesByFullPath {
   '/referrals': typeof ReferralsRoute
   '/services': typeof ServicesRouteWithChildren
   '/team-portal': typeof TeamPortalRouteWithChildren
+  '/terms': typeof TermsRoute
   '/api/upload-certification': typeof ApiUploadCertificationRoute
   '/careers/apply': typeof CareersApplyRoute
   '/files/$': typeof FilesSplatRoute
@@ -202,6 +223,8 @@ export interface FileRoutesByFullPath {
   '/careers/': typeof CareersIndexRoute
   '/services/': typeof ServicesIndexRoute
   '/team-portal/': typeof TeamPortalIndexRoute
+  '/team-portal/account': typeof AuthenticatedTeamPortalAccountRoute
+  '/team-portal/admin': typeof AuthenticatedTeamPortalAdminRoute
   '/team-portal/applicants': typeof AuthenticatedTeamPortalApplicantsRoute
   '/team-portal/staff': typeof AuthenticatedTeamPortalStaffRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
@@ -218,6 +241,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/programs': typeof ProgramsRoute
   '/referrals': typeof ReferralsRoute
+  '/terms': typeof TermsRoute
   '/api/upload-certification': typeof ApiUploadCertificationRoute
   '/careers/apply': typeof CareersApplyRoute
   '/files/$': typeof FilesSplatRoute
@@ -228,6 +252,8 @@ export interface FileRoutesByTo {
   '/careers': typeof CareersIndexRoute
   '/services': typeof ServicesIndexRoute
   '/team-portal': typeof TeamPortalIndexRoute
+  '/team-portal/account': typeof AuthenticatedTeamPortalAccountRoute
+  '/team-portal/admin': typeof AuthenticatedTeamPortalAdminRoute
   '/team-portal/applicants': typeof AuthenticatedTeamPortalApplicantsRoute
   '/team-portal/staff': typeof AuthenticatedTeamPortalStaffRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
@@ -249,6 +275,7 @@ export interface FileRoutesById {
   '/referrals': typeof ReferralsRoute
   '/services': typeof ServicesRouteWithChildren
   '/team-portal': typeof TeamPortalRouteWithChildren
+  '/terms': typeof TermsRoute
   '/api/upload-certification': typeof ApiUploadCertificationRoute
   '/careers/apply': typeof CareersApplyRoute
   '/files/$': typeof FilesSplatRoute
@@ -259,6 +286,8 @@ export interface FileRoutesById {
   '/careers/': typeof CareersIndexRoute
   '/services/': typeof ServicesIndexRoute
   '/team-portal/': typeof TeamPortalIndexRoute
+  '/_authenticated/team-portal/account': typeof AuthenticatedTeamPortalAccountRoute
+  '/_authenticated/team-portal/admin': typeof AuthenticatedTeamPortalAdminRoute
   '/_authenticated/team-portal/applicants': typeof AuthenticatedTeamPortalApplicantsRoute
   '/_authenticated/team-portal/staff': typeof AuthenticatedTeamPortalStaffRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
@@ -280,6 +309,7 @@ export interface FileRouteTypes {
     | '/referrals'
     | '/services'
     | '/team-portal'
+    | '/terms'
     | '/api/upload-certification'
     | '/careers/apply'
     | '/files/$'
@@ -290,6 +320,8 @@ export interface FileRouteTypes {
     | '/careers/'
     | '/services/'
     | '/team-portal/'
+    | '/team-portal/account'
+    | '/team-portal/admin'
     | '/team-portal/applicants'
     | '/team-portal/staff'
     | '/api/auth/session'
@@ -306,6 +338,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/programs'
     | '/referrals'
+    | '/terms'
     | '/api/upload-certification'
     | '/careers/apply'
     | '/files/$'
@@ -316,6 +349,8 @@ export interface FileRouteTypes {
     | '/careers'
     | '/services'
     | '/team-portal'
+    | '/team-portal/account'
+    | '/team-portal/admin'
     | '/team-portal/applicants'
     | '/team-portal/staff'
     | '/api/auth/session'
@@ -336,6 +371,7 @@ export interface FileRouteTypes {
     | '/referrals'
     | '/services'
     | '/team-portal'
+    | '/terms'
     | '/api/upload-certification'
     | '/careers/apply'
     | '/files/$'
@@ -346,6 +382,8 @@ export interface FileRouteTypes {
     | '/careers/'
     | '/services/'
     | '/team-portal/'
+    | '/_authenticated/team-portal/account'
+    | '/_authenticated/team-portal/admin'
     | '/_authenticated/team-portal/applicants'
     | '/_authenticated/team-portal/staff'
     | '/api/auth/session'
@@ -367,6 +405,7 @@ export interface RootRouteChildren {
   ReferralsRoute: typeof ReferralsRoute
   ServicesRoute: typeof ServicesRouteWithChildren
   TeamPortalRoute: typeof TeamPortalRouteWithChildren
+  TermsRoute: typeof TermsRoute
   ApiUploadCertificationRoute: typeof ApiUploadCertificationRoute
   FilesSplatRoute: typeof FilesSplatRoute
   ApiAuthSessionRoute: typeof ApiAuthSessionRoute
@@ -461,6 +500,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeamPortalRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/upload-certification': {
       id: '/api/upload-certification'
       path: '/api/upload-certification'
@@ -531,6 +577,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeamPortalSetPasswordRouteImport
       parentRoute: typeof TeamPortalRoute
     }
+    '/_authenticated/team-portal/account': {
+      id: '/_authenticated/team-portal/account'
+      path: '/team-portal/account'
+      fullPath: '/team-portal/account'
+      preLoaderRoute: typeof AuthenticatedTeamPortalAccountRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/team-portal/admin': {
+      id: '/_authenticated/team-portal/admin'
+      path: '/team-portal/admin'
+      fullPath: '/team-portal/admin'
+      preLoaderRoute: typeof AuthenticatedTeamPortalAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/team-portal/applicants': {
       id: '/_authenticated/team-portal/applicants'
       path: '/team-portal/applicants'
@@ -577,11 +637,15 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedTeamPortalAccountRoute: typeof AuthenticatedTeamPortalAccountRoute
+  AuthenticatedTeamPortalAdminRoute: typeof AuthenticatedTeamPortalAdminRoute
   AuthenticatedTeamPortalApplicantsRoute: typeof AuthenticatedTeamPortalApplicantsRoute
   AuthenticatedTeamPortalStaffRoute: typeof AuthenticatedTeamPortalStaffRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedTeamPortalAccountRoute: AuthenticatedTeamPortalAccountRoute,
+  AuthenticatedTeamPortalAdminRoute: AuthenticatedTeamPortalAdminRoute,
   AuthenticatedTeamPortalApplicantsRoute:
     AuthenticatedTeamPortalApplicantsRoute,
   AuthenticatedTeamPortalStaffRoute: AuthenticatedTeamPortalStaffRoute,
@@ -648,6 +712,7 @@ const rootRouteChildren: RootRouteChildren = {
   ReferralsRoute: ReferralsRoute,
   ServicesRoute: ServicesRouteWithChildren,
   TeamPortalRoute: TeamPortalRouteWithChildren,
+  TermsRoute: TermsRoute,
   ApiUploadCertificationRoute: ApiUploadCertificationRoute,
   FilesSplatRoute: FilesSplatRoute,
   ApiAuthSessionRoute: ApiAuthSessionRoute,

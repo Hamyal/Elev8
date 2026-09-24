@@ -16,7 +16,7 @@ export const Route = createFileRoute("/api/auth/sign-in")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { signIn, sessionCookie } = await import("@/server/auth");
+        const { signIn, sessionCookie, isSecureRequest } = await import("@/server/auth");
         const parsed = Credentials.safeParse(await request.json().catch(() => null));
         if (!parsed.success) {
           return Response.json({ error: "Enter your work email and password." }, { status: 400 });
@@ -32,7 +32,12 @@ export const Route = createFileRoute("/api/auth/sign-in")({
 
         return Response.json(
           { user: result.user },
-          { headers: { "set-cookie": sessionCookie(result.token), "cache-control": "no-store" } },
+          {
+            headers: {
+              "set-cookie": sessionCookie(result.token, isSecureRequest(request)),
+              "cache-control": "no-store",
+            },
+          },
         );
       },
     },

@@ -290,14 +290,38 @@ export function readSessionCookie(request: Request): string | null {
   return null;
 }
 
-export function sessionCookie(token: string): string {
-  const secure = process.env["NODE_ENV"] === "production" ? "; Secure" : "";
-  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${
-    SESSION_TTL_DAYS * 86_400
-  }${secure}`;
+/**
+ * Whether this request arrived over a secure connection.
+ *
+ * The Secure attribute must follow the actual protocol, not the build mode.
+ * Tying it to NODE_ENV means a production deployment served over plain HTTP
+ * sets Secure on the session cookie, the browser then refuses to send it back,
+ * and every request after sign-in is unauthorised — with no error to explain
+ * why, because the sign-in itself succeeded.
+ *
+ * x-forwarded-proto is honoured because the app is expected to run behind
+ * nginx, where the origin connection is plain HTTP even when the client is on
+ * HTTPS. A spoofed header here can only cause the cookie to be marked Secure,
+ * which fails closed.
+ */
+export function isSecureRequest(request: Request): boolean {
+  const forwarded = request.headers.get("x-forwarded-proto");
+  if (forwarded) return forwarded.split(",")[0]!.trim() === "https";
+  try {
+    return new URL(request.url).protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
-export function clearedSessionCookie(): string {
-  const secure = process.env["NODE_ENV"] === "production" ? "; Secure" : "";
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
+export function sessionCookie(token: string, secure: boolean): string {
+  const flag = secure ? "; Secure" : "";
+  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${
+    SESSION_TTL_DAYS * 86_400
+  }${flag}`;
+}
+
+export function clearedSessionCookie(secure: boolean): string {
+  const flag = secure ? "; Secure" : "";
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${flag}`;
 }

@@ -18,7 +18,7 @@ export const Route = createFileRoute("/api/auth/set-password")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { redeemToken, sessionCookie } = await import("@/server/auth");
+        const { redeemToken, sessionCookie, isSecureRequest } = await import("@/server/auth");
         const parsed = Payload.safeParse(await request.json().catch(() => null));
         if (!parsed.success) {
           return Response.json(
@@ -40,7 +40,12 @@ export const Route = createFileRoute("/api/auth/set-password")({
 
         return Response.json(
           { user: result.user },
-          { headers: { "set-cookie": sessionCookie(result.token), "cache-control": "no-store" } },
+          {
+            headers: {
+              "set-cookie": sessionCookie(result.token, isSecureRequest(request)),
+              "cache-control": "no-store",
+            },
+          },
         );
       },
     },

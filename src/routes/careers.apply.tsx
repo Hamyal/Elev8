@@ -3926,7 +3926,7 @@ function ApplyPage() {
   if (dq) {
     return (
       <section className="min-h-[70vh] bg-background">
-        <div className="mx-auto max-w-3xl px-4 py-10 sm:py-16">
+        <div className="site-shell max-w-3xl py-10 sm:py-16">
           <div
             role="alert"
             className="rounded-2xl border border-border bg-muted p-5 sm:p-6"
@@ -3968,7 +3968,7 @@ function ApplyPage() {
   if (previewed) {
     return (
       <section className="bg-background">
-        <div className="mx-auto max-w-2xl px-4 py-16 text-center">
+        <div className="site-shell max-w-2xl py-16 text-center">
           <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-teal/10">
             <CheckCircle2 className="h-8 w-8 text-teal" strokeWidth={1.5} />
           </span>

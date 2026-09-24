@@ -219,6 +219,29 @@
 }
 
 @layer components {
+  /*
+   * The one page gutter.
+   *
+   * The header sets the visual left edge of the site, so everything below it
+   * has to share the same width or the content sits indented relative to the
+   * logo. Pages previously used max-w-3xl, 5xl, 6xl and 7xl, none of which
+   * matched the header, which is why nothing lined up.
+   *
+   * Prose still wants a narrower measure — nest a max-w-* inside this rather
+   * than replacing it, so the gutter stays common and only the text column
+   * narrows.
+   */
+  .site-shell {
+    margin-inline: auto;
+    width: min(1180px, calc(100% - 2rem));
+  }
+
+  @media (min-width: 768px) {
+    .site-shell {
+      width: min(1180px, calc(100% - 4rem));
+    }
+  }
+
   .eyebrow {
     font-size: 0.75rem;
     font-weight: 700;

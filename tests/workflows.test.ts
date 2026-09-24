@@ -1086,8 +1086,12 @@ check("Caretaker has no applicant access", !can(["caretaker"], "ats.view"));
 check("Caretaker cannot reach admin settings", !can(["caretaker"], "admin.settings"));
 check("Caretaker can complete assigned tasks", can(["caretaker"], "self.tasks"));
 
-equal("hiring roles land in the ATS", homeFor(["hr"]), "/team-portal/applicants");
-equal("directory roles land on their account", homeFor(["caretaker"]), "/team-portal/account");
+// One home for everyone: the dashboard shows the sections a role can see, so
+// nobody is routed to a page they would immediately be refused.
+for (const role of ROLE_KEYS) {
+  equal(`${role} lands on the shared dashboard`, homeFor([role]), "/team-portal/dashboard");
+}
+equal("and so does an account with no role yet", homeFor([]), "/team-portal/dashboard");
 
 // The model must agree with what the database actually enforces.
 for (const role of ROLE_KEYS) {

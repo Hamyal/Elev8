@@ -42,7 +42,7 @@ export function ContactForm() {
 
   return (
     <section id="contact" className="bg-primary py-16 text-primary-foreground">
-      <div className="mx-auto max-w-3xl px-4">
+      <div className="site-shell max-w-3xl">
         <div className="text-center">
           <h2 className="text-3xl font-bold lg:text-4xl">Request Information</h2>
           <p className="mt-3 text-primary-foreground/80">

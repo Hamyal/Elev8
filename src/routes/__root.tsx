@@ -15,6 +15,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
+import { PortalNav } from "@/components/portal/PortalNav";
 
 function NotFoundComponent() {
   return (
@@ -138,15 +139,23 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const isAtsPreview = pathname === "/team-portal/applicants";
+
+  // Inside the signed-in portal the public site header is replaced by the
+  // portal's own top navigation. That is the only change: the portal nav
+  // appears on every section including the applicant workspace, so there is
+  // always a way out of it, and the footer keeps exactly the behaviour it had
+  // before — present everywhere except that workspace, which has always
+  // rendered full-bleed.
+  const inPortal = pathname.startsWith("/team-portal/") && pathname !== "/team-portal/set-password";
+  const isApplicantWorkspace = pathname === "/team-portal/applicants";
 
   return (
     <QueryClientProvider client={queryClient}>
-      {isAtsPreview ? null : <Header />}
+      {inPortal ? <PortalNav /> : <Header />}
       <main>
         <Outlet />
       </main>
-      {isAtsPreview ? null : <Footer />}
+      {isApplicantWorkspace ? null : <Footer />}
       <Toaster />
     </QueryClientProvider>
   );

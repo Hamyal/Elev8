@@ -3,8 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowLeft,
-  ArrowRight,
   Check,
+  LayoutDashboard,
   Loader2,
   Settings,
   ShieldCheck,
@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { getAdminOverview } from "@/lib/ats.functions";
+import { ActionCard, SectionHeading, StatCard } from "@/components/portal/Cards";
 import {
   CAPABILITIES,
   CAPABILITY_LABELS,
@@ -37,43 +38,18 @@ export const Route = createFileRoute("/_authenticated/team-portal/admin")({
   component: AdminDashboard,
 });
 
-function Stat({
-  label,
-  value,
-  tone = "default",
-}: {
-  label: string;
-  value: number;
-  tone?: "default" | "alert";
-}) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <p className="text-[0.7rem] font-bold uppercase tracking-[0.12em] text-muted-foreground/60">
-        {label}
-      </p>
-      <p
-        className={`mt-1.5 text-3xl font-extrabold ${
-          tone === "alert" && value > 0 ? "text-accent" : "text-primary"
-        }`}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
 function AdminDashboard() {
   const fetchOverview = useServerFn(getAdminOverview);
   const overview = useQuery({ queryKey: ["admin", "overview"], queryFn: () => fetchOverview() });
 
   return (
-    <section className="mx-auto max-w-5xl px-4 py-12">
+    <section className="site-shell py-12">
       <Link
-        to="/team-portal/applicants"
+        to="/team-portal/settings"
         className="inline-flex items-center gap-1 text-sm font-semibold text-teal"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Applicant Tracking
+        Access &amp; Settings
       </Link>
 
       <p className="eyebrow mt-5">Administrator</p>
@@ -97,84 +73,60 @@ function AdminDashboard() {
 
       {overview.data ? (
         <>
-          <h2 className="mt-10 text-sm font-bold uppercase tracking-[0.12em] text-muted-foreground/60">
-            Accounts
-          </h2>
+          <SectionHeading>Accounts</SectionHeading>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Stat label="Total" value={overview.data.users.total} />
-            <Stat label="Active" value={overview.data.users.active} />
-            <Stat label="Invited" value={overview.data.users.invited} />
-            <Stat label="Disabled" value={overview.data.users.disabled} />
+            <StatCard label="Total" value={overview.data.users.total} />
+            <StatCard label="Active" value={overview.data.users.active} />
+            <StatCard label="Invited" value={overview.data.users.invited} />
+            <StatCard label="Disabled" value={overview.data.users.disabled} />
           </div>
 
-          <h2 className="mt-10 text-sm font-bold uppercase tracking-[0.12em] text-muted-foreground/60">
-            Applicants
-          </h2>
+          <SectionHeading>Applicants</SectionHeading>
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            <Stat label="Total" value={overview.data.applicants.total} />
-            <Stat label="Still open" value={overview.data.applicants.open} />
-            <Stat
+            <StatCard label="Total" value={overview.data.applicants.total} />
+            <StatCard label="Still open" value={overview.data.applicants.open} />
+            <StatCard
               label="Flags needing review"
               value={overview.data.applicants.needsReview}
               tone="alert"
             />
           </div>
 
-          <h2 className="mt-10 text-sm font-bold uppercase tracking-[0.12em] text-muted-foreground/60">
-            People by role
-          </h2>
+          <SectionHeading>People by role</SectionHeading>
           <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {ROLE_KEYS.map((role) => {
               const row = overview.data.byRole.find((r) => r.role === role);
-              return <Stat key={role} label={ROLE_LABELS[role]} value={row?.count ?? 0} />;
+              return <StatCard key={role} label={ROLE_LABELS[role]} value={row?.count ?? 0} />;
             })}
           </div>
         </>
       ) : null}
 
       {/* --- Shortcuts --------------------------------------------------- */}
-      <h2 className="mt-12 text-sm font-bold uppercase tracking-[0.12em] text-muted-foreground/60">
-        Manage
-      </h2>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <Link
-          to="/team-portal/staff"
-          className="group rounded-2xl border border-border bg-card p-5 transition-colors hover:border-teal"
-        >
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal/10">
-            <Users className="h-5 w-5 text-teal" strokeWidth={1.75} />
-          </span>
-          <p className="mt-3 font-bold text-primary group-hover:text-teal">User access</p>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Create accounts, assign roles, rename people, disable access.
-          </p>
-          <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-teal">
-            Open <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </span>
-        </Link>
-
-        <Link
+      <SectionHeading>Manage</SectionHeading>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <ActionCard
+          to="/team-portal/dashboard"
+          icon={LayoutDashboard}
+          title="Dashboard"
+          description="The day-to-day view: applicants, accounts and what needs attention."
+        />
+        <ActionCard
+          to="/team-portal/settings/users"
+          icon={Users}
+          title="Users"
+          description="Create accounts, assign roles, rename people, disable access."
+        />
+        <ActionCard
           to="/team-portal/account"
-          className="group rounded-2xl border border-border bg-card p-5 transition-colors hover:border-teal"
-        >
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal/10">
-            <UserRound className="h-5 w-5 text-teal" strokeWidth={1.75} />
-          </span>
-          <p className="mt-3 font-bold text-primary group-hover:text-teal">My account</p>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Your own name and password.
-          </p>
-          <span className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-teal">
-            Open <ArrowRight className="h-4 w-4" aria-hidden="true" />
-          </span>
-        </Link>
+          icon={UserRound}
+          title="My account"
+          description="Your own name and password."
+        />
       </div>
 
       {/* --- Permission matrix ------------------------------------------- */}
-      <h2 className="mt-12 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.12em] text-muted-foreground/60">
-        <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-        What each role can do
-      </h2>
+      <SectionHeading icon={ShieldCheck}>What each role can do</SectionHeading>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
         Generated from the permission model itself, so it always matches what the application
         grants. The database enforces these rules independently.
@@ -239,10 +191,7 @@ function AdminDashboard() {
       </div>
 
       {/* --- Settings ---------------------------------------------------- */}
-      <h2 className="mt-12 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.12em] text-muted-foreground/60">
-        <Settings className="h-4 w-4" aria-hidden="true" />
-        System settings
-      </h2>
+      <SectionHeading icon={Settings}>System settings</SectionHeading>
       <p className="mt-2 max-w-2xl rounded-xl border border-border bg-secondary/60 p-4 text-sm leading-relaxed text-muted-foreground">
         Not built yet. The values an administrator might want to edit — the approved message
         wording, interview facilities, phone-interview windows and deadline defaults — are currently

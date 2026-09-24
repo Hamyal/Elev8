@@ -67,7 +67,7 @@ function MyAccountPage() {
 
   if (account.isLoading) {
     return (
-      <section className="mx-auto max-w-3xl px-4 py-16">
+      <section className="site-shell py-16">
         <Loader2 className="h-5 w-5 animate-spin text-teal" aria-hidden="true" />
       </section>
     );
@@ -75,7 +75,7 @@ function MyAccountPage() {
 
   if (account.error || !account.data) {
     return (
-      <section className="mx-auto max-w-3xl px-4 py-16">
+      <section className="site-shell py-16">
         <p className="rounded-xl border border-accent/40 bg-accent/5 p-4 text-sm font-semibold text-primary">
           {account.error instanceof Error
             ? account.error.message
@@ -89,76 +89,101 @@ function MyAccountPage() {
   const canOpenAts = me.capabilities.includes("ats.view");
 
   return (
-    <section className="mx-auto max-w-3xl px-4 py-12">
+    <section className="site-shell py-12">
       {canOpenAts ? (
         <Link
-          to="/team-portal/applicants"
+          to="/team-portal/settings"
           className="inline-flex items-center gap-1 text-sm font-semibold text-teal"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Applicant Tracking
+          Access &amp; Settings
         </Link>
       ) : null}
 
       <p className="eyebrow mt-5">Your account</p>
-      <h1 className="mt-2 text-2xl font-extrabold text-primary lg:text-4xl">
-        {me.fullName || me.email}
-      </h1>
-      <p className="mt-2 text-base text-muted-foreground">{me.email}</p>
+      <div className="mt-2 flex items-start gap-4">
+        <span
+          aria-hidden="true"
+          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-teal/10 text-xl font-extrabold text-teal ring-1 ring-inset ring-teal/20"
+        >
+          {(me.fullName || me.email).trim().charAt(0).toUpperCase()}
+        </span>
+        <div className="min-w-0">
+          <h1 className="truncate text-2xl font-extrabold text-primary lg:text-3xl">
+            {me.fullName || me.email}
+          </h1>
+          <p className="mt-1 truncate text-base text-muted-foreground">{me.email}</p>
+        </div>
+      </div>
 
       {/* --- Access ---------------------------------------------------- */}
-      <div className="mt-8 rounded-2xl border border-border bg-card p-5">
-        <p className="text-xs font-bold uppercase tracking-[0.12em] text-teal">Your access</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {me.roles.length ? (
-            me.roles.map((role) => (
-              <span
-                key={role}
-                className="rounded-full border border-border bg-secondary px-3 py-1 text-sm font-bold text-primary"
-              >
-                {ROLE_LABELS[role as RoleKey] ?? role}
-              </span>
-            ))
-          ) : (
-            <span className="text-sm text-muted-foreground">No role assigned yet.</span>
-          )}
+      <div className="mt-8 overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="border-b border-border bg-secondary/60 px-5 py-3">
+          <p className="text-[0.7rem] font-bold uppercase tracking-[0.12em] text-teal">
+            Your access
+          </p>
         </div>
-        {me.roles[0] ? (
-          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-            {ROLE_SUMMARIES[me.roles[0] as RoleKey]}
-          </p>
-        ) : null}
+        <div className="p-5">
+          <div className="flex flex-wrap gap-2">
+            {me.roles.length ? (
+              me.roles.map((role) => (
+                <span
+                  key={role}
+                  className="rounded-full border border-border bg-secondary px-3 py-1 text-sm font-bold text-primary"
+                >
+                  {ROLE_LABELS[role as RoleKey] ?? role}
+                </span>
+              ))
+            ) : (
+              <span className="text-sm text-muted-foreground">No role assigned yet.</span>
+            )}
+          </div>
+          {me.roles[0] ? (
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              {ROLE_SUMMARIES[me.roles[0] as RoleKey]}
+            </p>
+          ) : null}
 
-        <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-          {me.capabilities.map((capability) => (
-            <li key={capability} className="flex items-start gap-2 text-sm text-muted-foreground">
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-teal" strokeWidth={2} />
-              {CAPABILITY_LABELS[capability as Capability] ?? capability}
-            </li>
-          ))}
-        </ul>
+          <ul className="mt-5 grid gap-x-6 gap-y-2.5 border-t border-border pt-5 sm:grid-cols-2">
+            {me.capabilities.map((capability) => (
+              <li
+                key={capability}
+                className="flex items-start gap-2.5 text-sm leading-relaxed text-muted-foreground"
+              >
+                <CheckCircle2
+                  className="mt-[3px] h-4 w-4 shrink-0 text-teal"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                />
+                <span className="min-w-0">
+                  {CAPABILITY_LABELS[capability as Capability] ?? capability}
+                </span>
+              </li>
+            ))}
+          </ul>
 
-        {!canOpenAts ? (
-          <p className="mt-4 rounded-lg bg-secondary px-4 py-3 text-sm leading-relaxed text-muted-foreground">
-            Your role does not include the applicant tracking system. If you need it, ask an
-            administrator.
-          </p>
-        ) : null}
+          {!canOpenAts ? (
+            <p className="mt-5 rounded-lg border border-border bg-secondary px-4 py-3 text-sm leading-relaxed text-muted-foreground">
+              Your role does not include the applicant tracking system. If you need it, ask an
+              administrator.
+            </p>
+          ) : null}
+        </div>
       </div>
 
       {/* --- Name ------------------------------------------------------ */}
       <form
-        className="mt-6 rounded-2xl border border-border bg-card p-5"
+        className="mt-6 rounded-2xl border border-border bg-card p-5 sm:p-6"
         onSubmit={(event) => {
           event.preventDefault();
           if (fullName.trim()) nameMutation.mutate();
         }}
       >
-        <p className="flex items-center gap-2 text-sm font-bold text-primary">
-          <UserRound className="h-4 w-4 text-teal" strokeWidth={1.75} />
+        <h2 className="flex items-center gap-2 text-lg font-bold text-primary">
+          <UserRound className="h-[18px] w-[18px] text-teal" strokeWidth={1.75} />
           Your details
-        </p>
-        <label className="mt-3 block text-sm font-semibold text-primary">
+        </h2>
+        <label className="mt-4 block max-w-sm text-sm font-semibold text-primary">
           Full name
           <input
             value={fullName}
@@ -166,13 +191,13 @@ function MyAccountPage() {
             className={input}
           />
         </label>
-        <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+        <p className="mt-2 max-w-sm text-xs leading-relaxed text-muted-foreground">
           Your email address is how you sign in, so only an administrator can change it.
         </p>
         <button
           type="submit"
           disabled={nameMutation.isPending || !fullName.trim()}
-          className="btn-solid mt-4 inline-flex items-center gap-2 px-6 py-2.5 text-sm disabled:opacity-60"
+          className="btn-solid mt-5 inline-flex items-center gap-2 px-6 py-2.5 text-sm disabled:opacity-60"
         >
           {nameMutation.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -193,7 +218,7 @@ function MyAccountPage() {
 
       {/* --- Password -------------------------------------------------- */}
       <form
-        className="mt-6 rounded-2xl border border-border bg-card p-5"
+        className="mt-6 rounded-2xl border border-border bg-card p-5 sm:p-6"
         onSubmit={(event) => {
           event.preventDefault();
           setPasswordError(null);
@@ -208,12 +233,12 @@ function MyAccountPage() {
           passwordMutation.mutate();
         }}
       >
-        <p className="flex items-center gap-2 text-sm font-bold text-primary">
-          <KeyRound className="h-4 w-4 text-teal" strokeWidth={1.75} />
+        <h2 className="flex items-center gap-2 text-lg font-bold text-primary">
+          <KeyRound className="h-[18px] w-[18px] text-teal" strokeWidth={1.75} />
           Change your password
-        </p>
-        <div className="mt-3 grid gap-4 sm:grid-cols-2">
-          <label className="text-sm font-semibold text-primary sm:col-span-2">
+        </h2>
+        <div className="mt-4 grid gap-5 sm:grid-cols-2">
+          <label className="flex flex-col text-sm font-semibold text-primary sm:col-span-2 sm:max-w-sm">
             Current password
             <input
               type="password"
@@ -224,7 +249,7 @@ function MyAccountPage() {
               className={input}
             />
           </label>
-          <label className="text-sm font-semibold text-primary">
+          <label className="flex flex-col text-sm font-semibold text-primary">
             New password
             <input
               type="password"
@@ -235,7 +260,7 @@ function MyAccountPage() {
               className={input}
             />
           </label>
-          <label className="text-sm font-semibold text-primary">
+          <label className="flex flex-col text-sm font-semibold text-primary">
             Confirm new password
             <input
               type="password"
@@ -265,7 +290,7 @@ function MyAccountPage() {
         <button
           type="submit"
           disabled={passwordMutation.isPending}
-          className="btn-solid mt-4 inline-flex items-center gap-2 px-6 py-2.5 text-sm disabled:opacity-60"
+          className="btn-solid mt-5 inline-flex items-center gap-2 px-6 py-2.5 text-sm disabled:opacity-60"
         >
           {passwordMutation.isPending ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

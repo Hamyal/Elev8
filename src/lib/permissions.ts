@@ -127,10 +127,15 @@ export function capabilitiesFor(roles: readonly string[]): Capability[] {
   return CAPABILITIES.filter((capability) => granted.has(capability));
 }
 
-/** The landing page a person should be sent to after signing in. */
-export function homeFor(roles: readonly string[]): string {
-  if (can(roles, "ats.view")) return "/team-portal/applicants";
-  return "/team-portal/account";
+/**
+ * The landing page after signing in.
+ *
+ * One dashboard for every role. It shows the sections that role can see, so
+ * there is no need to route people to different homes — and nobody lands on a
+ * page they will immediately be refused.
+ */
+export function homeFor(_roles: readonly string[]): string {
+  return "/team-portal/dashboard";
 }
 
 export function primaryRole(roles: readonly string[]): RoleKey | null {

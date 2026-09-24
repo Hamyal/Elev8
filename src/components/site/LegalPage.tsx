@@ -258,7 +258,7 @@ export function LegalHero({
         className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-teal/20 blur-3xl"
       />
 
-      <div className="relative mx-auto max-w-5xl px-4 py-16 sm:py-20">
+      <div className="site-shell relative py-16 sm:py-20">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-teal-foreground/70">
           {eyebrow}
         </p>

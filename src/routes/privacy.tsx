@@ -106,7 +106,7 @@ function Privacy() {
         ]}
       />
 
-      <div className="mx-auto max-w-5xl px-4 py-12 sm:py-16">
+      <div className="site-shell py-12 sm:py-16">
         <div className="lg:grid lg:grid-cols-[13rem_1fr] lg:gap-12">
           <aside className="hidden lg:block">
             <ContentsRail items={CONTENTS} />

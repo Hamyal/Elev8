@@ -35,11 +35,17 @@ import { Route as TeamPortalSetPasswordRouteImport } from './routes/team-portal.
 import { Route as AuthenticatedTeamPortalAccountRouteImport } from './routes/_authenticated/team-portal.account'
 import { Route as AuthenticatedTeamPortalAdminRouteImport } from './routes/_authenticated/team-portal.admin'
 import { Route as AuthenticatedTeamPortalApplicantsRouteImport } from './routes/_authenticated/team-portal.applicants'
-import { Route as AuthenticatedTeamPortalStaffRouteImport } from './routes/_authenticated/team-portal.staff'
+import { Route as AuthenticatedTeamPortalClientsRouteImport } from './routes/_authenticated/team-portal.clients'
+import { Route as AuthenticatedTeamPortalCorporateRouteImport } from './routes/_authenticated/team-portal.corporate'
+import { Route as AuthenticatedTeamPortalDashboardRouteImport } from './routes/_authenticated/team-portal.dashboard'
+import { Route as AuthenticatedTeamPortalReportsRouteImport } from './routes/_authenticated/team-portal.reports'
+import { Route as AuthenticatedTeamPortalSettingsRouteImport } from './routes/_authenticated/team-portal.settings'
+import { Route as AuthenticatedTeamPortalTeamRouteImport } from './routes/_authenticated/team-portal.team'
 import { Route as ApiAuthSessionRouteImport } from './routes/api/auth/session'
 import { Route as ApiAuthSetPasswordRouteImport } from './routes/api/auth/set-password'
 import { Route as ApiAuthSignInRouteImport } from './routes/api/auth/sign-in'
 import { Route as ApiAuthSignOutRouteImport } from './routes/api/auth/sign-out'
+import { Route as AuthenticatedTeamPortalSettingsUsersRouteImport } from './routes/_authenticated/team-portal.settings.users'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -173,10 +179,40 @@ const AuthenticatedTeamPortalApplicantsRoute =
     path: '/team-portal/applicants',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedTeamPortalStaffRoute =
-  AuthenticatedTeamPortalStaffRouteImport.update({
-    id: '/team-portal/staff',
-    path: '/team-portal/staff',
+const AuthenticatedTeamPortalClientsRoute =
+  AuthenticatedTeamPortalClientsRouteImport.update({
+    id: '/team-portal/clients',
+    path: '/team-portal/clients',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedTeamPortalCorporateRoute =
+  AuthenticatedTeamPortalCorporateRouteImport.update({
+    id: '/team-portal/corporate',
+    path: '/team-portal/corporate',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedTeamPortalDashboardRoute =
+  AuthenticatedTeamPortalDashboardRouteImport.update({
+    id: '/team-portal/dashboard',
+    path: '/team-portal/dashboard',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedTeamPortalReportsRoute =
+  AuthenticatedTeamPortalReportsRouteImport.update({
+    id: '/team-portal/reports',
+    path: '/team-portal/reports',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedTeamPortalSettingsRoute =
+  AuthenticatedTeamPortalSettingsRouteImport.update({
+    id: '/team-portal/settings',
+    path: '/team-portal/settings',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedTeamPortalTeamRoute =
+  AuthenticatedTeamPortalTeamRouteImport.update({
+    id: '/team-portal/team',
+    path: '/team-portal/team',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const ApiAuthSessionRoute = ApiAuthSessionRouteImport.update({
@@ -199,6 +235,12 @@ const ApiAuthSignOutRoute = ApiAuthSignOutRouteImport.update({
   path: '/api/auth/sign-out',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedTeamPortalSettingsUsersRoute =
+  AuthenticatedTeamPortalSettingsUsersRouteImport.update({
+    id: '/users',
+    path: '/users',
+    getParentRoute: () => AuthenticatedTeamPortalSettingsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -226,11 +268,17 @@ export interface FileRoutesByFullPath {
   '/team-portal/account': typeof AuthenticatedTeamPortalAccountRoute
   '/team-portal/admin': typeof AuthenticatedTeamPortalAdminRoute
   '/team-portal/applicants': typeof AuthenticatedTeamPortalApplicantsRoute
-  '/team-portal/staff': typeof AuthenticatedTeamPortalStaffRoute
+  '/team-portal/clients': typeof AuthenticatedTeamPortalClientsRoute
+  '/team-portal/corporate': typeof AuthenticatedTeamPortalCorporateRoute
+  '/team-portal/dashboard': typeof AuthenticatedTeamPortalDashboardRoute
+  '/team-portal/reports': typeof AuthenticatedTeamPortalReportsRoute
+  '/team-portal/settings': typeof AuthenticatedTeamPortalSettingsRouteWithChildren
+  '/team-portal/team': typeof AuthenticatedTeamPortalTeamRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/auth/set-password': typeof ApiAuthSetPasswordRoute
   '/api/auth/sign-in': typeof ApiAuthSignInRoute
   '/api/auth/sign-out': typeof ApiAuthSignOutRoute
+  '/team-portal/settings/users': typeof AuthenticatedTeamPortalSettingsUsersRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -255,11 +303,17 @@ export interface FileRoutesByTo {
   '/team-portal/account': typeof AuthenticatedTeamPortalAccountRoute
   '/team-portal/admin': typeof AuthenticatedTeamPortalAdminRoute
   '/team-portal/applicants': typeof AuthenticatedTeamPortalApplicantsRoute
-  '/team-portal/staff': typeof AuthenticatedTeamPortalStaffRoute
+  '/team-portal/clients': typeof AuthenticatedTeamPortalClientsRoute
+  '/team-portal/corporate': typeof AuthenticatedTeamPortalCorporateRoute
+  '/team-portal/dashboard': typeof AuthenticatedTeamPortalDashboardRoute
+  '/team-portal/reports': typeof AuthenticatedTeamPortalReportsRoute
+  '/team-portal/settings': typeof AuthenticatedTeamPortalSettingsRouteWithChildren
+  '/team-portal/team': typeof AuthenticatedTeamPortalTeamRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/auth/set-password': typeof ApiAuthSetPasswordRoute
   '/api/auth/sign-in': typeof ApiAuthSignInRoute
   '/api/auth/sign-out': typeof ApiAuthSignOutRoute
+  '/team-portal/settings/users': typeof AuthenticatedTeamPortalSettingsUsersRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -289,11 +343,17 @@ export interface FileRoutesById {
   '/_authenticated/team-portal/account': typeof AuthenticatedTeamPortalAccountRoute
   '/_authenticated/team-portal/admin': typeof AuthenticatedTeamPortalAdminRoute
   '/_authenticated/team-portal/applicants': typeof AuthenticatedTeamPortalApplicantsRoute
-  '/_authenticated/team-portal/staff': typeof AuthenticatedTeamPortalStaffRoute
+  '/_authenticated/team-portal/clients': typeof AuthenticatedTeamPortalClientsRoute
+  '/_authenticated/team-portal/corporate': typeof AuthenticatedTeamPortalCorporateRoute
+  '/_authenticated/team-portal/dashboard': typeof AuthenticatedTeamPortalDashboardRoute
+  '/_authenticated/team-portal/reports': typeof AuthenticatedTeamPortalReportsRoute
+  '/_authenticated/team-portal/settings': typeof AuthenticatedTeamPortalSettingsRouteWithChildren
+  '/_authenticated/team-portal/team': typeof AuthenticatedTeamPortalTeamRoute
   '/api/auth/session': typeof ApiAuthSessionRoute
   '/api/auth/set-password': typeof ApiAuthSetPasswordRoute
   '/api/auth/sign-in': typeof ApiAuthSignInRoute
   '/api/auth/sign-out': typeof ApiAuthSignOutRoute
+  '/_authenticated/team-portal/settings/users': typeof AuthenticatedTeamPortalSettingsUsersRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -323,11 +383,17 @@ export interface FileRouteTypes {
     | '/team-portal/account'
     | '/team-portal/admin'
     | '/team-portal/applicants'
-    | '/team-portal/staff'
+    | '/team-portal/clients'
+    | '/team-portal/corporate'
+    | '/team-portal/dashboard'
+    | '/team-portal/reports'
+    | '/team-portal/settings'
+    | '/team-portal/team'
     | '/api/auth/session'
     | '/api/auth/set-password'
     | '/api/auth/sign-in'
     | '/api/auth/sign-out'
+    | '/team-portal/settings/users'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -352,11 +418,17 @@ export interface FileRouteTypes {
     | '/team-portal/account'
     | '/team-portal/admin'
     | '/team-portal/applicants'
-    | '/team-portal/staff'
+    | '/team-portal/clients'
+    | '/team-portal/corporate'
+    | '/team-portal/dashboard'
+    | '/team-portal/reports'
+    | '/team-portal/settings'
+    | '/team-portal/team'
     | '/api/auth/session'
     | '/api/auth/set-password'
     | '/api/auth/sign-in'
     | '/api/auth/sign-out'
+    | '/team-portal/settings/users'
   id:
     | '__root__'
     | '/'
@@ -385,11 +457,17 @@ export interface FileRouteTypes {
     | '/_authenticated/team-portal/account'
     | '/_authenticated/team-portal/admin'
     | '/_authenticated/team-portal/applicants'
-    | '/_authenticated/team-portal/staff'
+    | '/_authenticated/team-portal/clients'
+    | '/_authenticated/team-portal/corporate'
+    | '/_authenticated/team-portal/dashboard'
+    | '/_authenticated/team-portal/reports'
+    | '/_authenticated/team-portal/settings'
+    | '/_authenticated/team-portal/team'
     | '/api/auth/session'
     | '/api/auth/set-password'
     | '/api/auth/sign-in'
     | '/api/auth/sign-out'
+    | '/_authenticated/team-portal/settings/users'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -598,11 +676,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedTeamPortalApplicantsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/team-portal/staff': {
-      id: '/_authenticated/team-portal/staff'
-      path: '/team-portal/staff'
-      fullPath: '/team-portal/staff'
-      preLoaderRoute: typeof AuthenticatedTeamPortalStaffRouteImport
+    '/_authenticated/team-portal/clients': {
+      id: '/_authenticated/team-portal/clients'
+      path: '/team-portal/clients'
+      fullPath: '/team-portal/clients'
+      preLoaderRoute: typeof AuthenticatedTeamPortalClientsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/team-portal/corporate': {
+      id: '/_authenticated/team-portal/corporate'
+      path: '/team-portal/corporate'
+      fullPath: '/team-portal/corporate'
+      preLoaderRoute: typeof AuthenticatedTeamPortalCorporateRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/team-portal/dashboard': {
+      id: '/_authenticated/team-portal/dashboard'
+      path: '/team-portal/dashboard'
+      fullPath: '/team-portal/dashboard'
+      preLoaderRoute: typeof AuthenticatedTeamPortalDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/team-portal/reports': {
+      id: '/_authenticated/team-portal/reports'
+      path: '/team-portal/reports'
+      fullPath: '/team-portal/reports'
+      preLoaderRoute: typeof AuthenticatedTeamPortalReportsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/team-portal/settings': {
+      id: '/_authenticated/team-portal/settings'
+      path: '/team-portal/settings'
+      fullPath: '/team-portal/settings'
+      preLoaderRoute: typeof AuthenticatedTeamPortalSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/team-portal/team': {
+      id: '/_authenticated/team-portal/team'
+      path: '/team-portal/team'
+      fullPath: '/team-portal/team'
+      preLoaderRoute: typeof AuthenticatedTeamPortalTeamRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/auth/session': {
@@ -633,14 +746,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSignOutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/team-portal/settings/users': {
+      id: '/_authenticated/team-portal/settings/users'
+      path: '/users'
+      fullPath: '/team-portal/settings/users'
+      preLoaderRoute: typeof AuthenticatedTeamPortalSettingsUsersRouteImport
+      parentRoute: typeof AuthenticatedTeamPortalSettingsRoute
+    }
   }
 }
+
+interface AuthenticatedTeamPortalSettingsRouteChildren {
+  AuthenticatedTeamPortalSettingsUsersRoute: typeof AuthenticatedTeamPortalSettingsUsersRoute
+}
+
+const AuthenticatedTeamPortalSettingsRouteChildren: AuthenticatedTeamPortalSettingsRouteChildren =
+  {
+    AuthenticatedTeamPortalSettingsUsersRoute:
+      AuthenticatedTeamPortalSettingsUsersRoute,
+  }
+
+const AuthenticatedTeamPortalSettingsRouteWithChildren =
+  AuthenticatedTeamPortalSettingsRoute._addFileChildren(
+    AuthenticatedTeamPortalSettingsRouteChildren,
+  )
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedTeamPortalAccountRoute: typeof AuthenticatedTeamPortalAccountRoute
   AuthenticatedTeamPortalAdminRoute: typeof AuthenticatedTeamPortalAdminRoute
   AuthenticatedTeamPortalApplicantsRoute: typeof AuthenticatedTeamPortalApplicantsRoute
-  AuthenticatedTeamPortalStaffRoute: typeof AuthenticatedTeamPortalStaffRoute
+  AuthenticatedTeamPortalClientsRoute: typeof AuthenticatedTeamPortalClientsRoute
+  AuthenticatedTeamPortalCorporateRoute: typeof AuthenticatedTeamPortalCorporateRoute
+  AuthenticatedTeamPortalDashboardRoute: typeof AuthenticatedTeamPortalDashboardRoute
+  AuthenticatedTeamPortalReportsRoute: typeof AuthenticatedTeamPortalReportsRoute
+  AuthenticatedTeamPortalSettingsRoute: typeof AuthenticatedTeamPortalSettingsRouteWithChildren
+  AuthenticatedTeamPortalTeamRoute: typeof AuthenticatedTeamPortalTeamRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -648,7 +788,13 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTeamPortalAdminRoute: AuthenticatedTeamPortalAdminRoute,
   AuthenticatedTeamPortalApplicantsRoute:
     AuthenticatedTeamPortalApplicantsRoute,
-  AuthenticatedTeamPortalStaffRoute: AuthenticatedTeamPortalStaffRoute,
+  AuthenticatedTeamPortalClientsRoute: AuthenticatedTeamPortalClientsRoute,
+  AuthenticatedTeamPortalCorporateRoute: AuthenticatedTeamPortalCorporateRoute,
+  AuthenticatedTeamPortalDashboardRoute: AuthenticatedTeamPortalDashboardRoute,
+  AuthenticatedTeamPortalReportsRoute: AuthenticatedTeamPortalReportsRoute,
+  AuthenticatedTeamPortalSettingsRoute:
+    AuthenticatedTeamPortalSettingsRouteWithChildren,
+  AuthenticatedTeamPortalTeamRoute: AuthenticatedTeamPortalTeamRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

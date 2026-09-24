@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Menu, X } from "lucide-react";
+import { LayoutDashboard, LogOut, Menu, X } from "lucide-react";
 import { Logo } from "@/components/site/Logo";
 import { createApplicationAttempt } from "@/lib/application-attempt";
+import { getSessionUser, signOut, type SessionUser } from "@/lib/auth-client";
 
 const NAV = [
   { label: "Home", to: "/" },
@@ -18,10 +19,46 @@ function isActive(pathname: string, to: string): boolean {
   return pathname === to || pathname.startsWith(`${to}/`);
 }
 
+/**
+ * Who is signed in, for the header only.
+ *
+ * The header renders on every page, including public ones, so this must never
+ * throw or block: a failed lookup simply means the signed-out header, which is
+ * the correct fallback. `pathname` is a dependency because signing in or out
+ * navigates, and the header has to notice.
+ */
+function useSessionUser(pathname: string) {
+  const [user, setUser] = useState<SessionUser | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    getSessionUser({ force: true })
+      .then((result) => {
+        if (active) setUser(result);
+      })
+      .catch(() => {
+        if (active) setUser(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [pathname]);
+
+  return user;
+}
+
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const headerRef = useRef<HTMLElement>(null);
+  const user = useSessionUser(pathname);
+
+  async function handleSignOut() {
+    await signOut();
+    // A full navigation rather than a router push, so every cached query for
+    // the previous person is discarded with the page.
+    window.location.href = "/team-portal";
+  }
 
   // Close the mobile menu when tapping outside of it.
   useEffect(() => {
@@ -40,7 +77,7 @@ export function Header() {
       ref={headerRef}
       className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80"
     >
-      <div className="mx-auto flex w-[min(1180px,calc(100%-2rem))] max-w-none items-center justify-between md:w-[min(1180px,calc(100%-4rem))] gap-9 py-4 lg:h-[126px] lg:py-0">
+      <div className="site-shell flex items-center justify-between gap-9 py-4 lg:h-[126px] lg:py-0">
         <div className="flex items-center gap-3">
           <button
             className="text-primary lg:hidden"
@@ -73,19 +110,39 @@ export function Header() {
               </Link>
             );
           })}
-          <Link
-            to="/contact"
-            className="rounded-lg bg-primary px-[26px] py-[18px] text-[0.9375rem] font-bold text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            Contact Us
-          </Link>
+          {user ? (
+            <div className="flex items-center gap-3">
+              <Link
+                to="/team-portal/dashboard"
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-3 text-[0.9375rem] font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+                Dashboard
+              </Link>
+              <button
+                type="button"
+                onClick={() => void handleSignOut()}
+                title={`Signed in as ${user.email}`}
+                className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-3 text-[0.9375rem] font-bold text-primary transition-colors hover:border-accent hover:text-accent"
+              >
+                <LogOut className="h-4 w-4" aria-hidden="true" />
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <Link
+              to="/contact"
+              className="rounded-lg bg-primary px-[26px] py-[18px] text-[0.9375rem] font-bold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Contact Us
+            </Link>
+          )}
         </nav>
-
       </div>
 
       {mobileOpen && (
         <div className="border-t border-border bg-background lg:hidden">
-          <nav className="mx-auto flex max-w-7xl flex-col px-4 py-2">
+          <nav className="site-shell flex flex-col py-2">
             {NAV.map((item) => {
               const active = isActive(pathname, item.to);
               return (
@@ -125,6 +182,35 @@ export function Header() {
             >
               Start Application
             </Link>
+
+            {/* The same signed-in controls as the desktop header, so signing
+                out does not require finding a wider screen. */}
+            {user ? (
+              <div className="mb-3 border-t border-border pt-3">
+                <p className="truncate pb-2 text-xs font-semibold text-muted-foreground">
+                  Signed in as {user.email}
+                </p>
+                <Link
+                  to="/team-portal/dashboard"
+                  onClick={() => setMobileOpen(false)}
+                  className="mb-2 flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-bold text-primary-foreground"
+                >
+                  <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+                  Dashboard
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileOpen(false);
+                    void handleSignOut();
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-border px-5 py-3 text-sm font-bold text-primary"
+                >
+                  <LogOut className="h-4 w-4" aria-hidden="true" />
+                  Sign out
+                </button>
+              </div>
+            ) : null}
           </nav>
         </div>
       )}

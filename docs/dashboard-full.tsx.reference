@@ -1,0 +1,313 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  CheckCircle2,
+  ClipboardList,
+  Clock,
+  Flag,
+  Inbox,
+  LayoutList,
+  Loader2,
+  ShieldCheck,
+  TrendingUp,
+  UserCheck,
+  UserRound,
+  Users,
+} from "lucide-react";
+import { getDashboard } from "@/lib/ats.functions";
+import {
+  AttentionBar,
+  FunnelRow,
+  PageHeader,
+  Panel,
+  QuickLink,
+  SectionHeading,
+  StatCard,
+} from "@/components/portal/Cards";
+import {
+  CAPABILITY_LABELS,
+  ROLE_LABELS,
+  ROLE_SUMMARIES,
+  type Capability,
+  type RoleKey,
+} from "@/lib/permissions";
+
+/**
+ * The portal home, for every role.
+ *
+ * Admin, HR, Viewer, Employee and Caretaker all land here and all get the same
+ * layout — what needs attention, then the figures, with a sidebar of links and
+ * your own access. What differs is which sections have anything to show, which
+ * follows from the capabilities the server returned. A Caretaker is not given a
+ * cut-down or differently-styled page; they are given the same page with the
+ * hiring sections absent.
+ */
+export const Route = createFileRoute("/_authenticated/team-portal/dashboard")({
+  head: () => ({
+    meta: [
+      { title: "Dashboard — Elev8 Services Team Portal" },
+      { name: "robots", content: "noindex" },
+    ],
+  }),
+  component: Dashboard,
+});
+
+function greeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+/** Closed stages are drawn muted and hires accented, so the live ones lead. */
+function stageTone(key: string): "teal" | "muted" | "accent" {
+  if (key === "not_selected") return "muted";
+  if (key === "hired") return "accent";
+  return "teal";
+}
+
+function Dashboard() {
+  const fetchDashboard = useServerFn(getDashboard);
+  const dashboard = useQuery({
+    queryKey: ["portal", "dashboard"],
+    queryFn: () => fetchDashboard(),
+  });
+
+  if (dashboard.isLoading) {
+    return (
+      <section className="site-shell py-16">
+        <Loader2 className="h-5 w-5 animate-spin text-teal" aria-hidden="true" />
+      </section>
+    );
+  }
+
+  if (dashboard.error || !dashboard.data) {
+    return (
+      <section className="site-shell py-16">
+        <p
+          role="alert"
+          className="rounded-xl border border-accent/40 bg-accent/5 p-4 text-sm font-semibold text-primary"
+        >
+          {dashboard.error instanceof Error
+            ? dashboard.error.message
+            : "Your dashboard could not be loaded."}
+        </p>
+      </section>
+    );
+  }
+
+  const { me, hiring, accounts } = dashboard.data;
+  const has = (capability: Capability) => me.capabilities.includes(capability);
+  const name = (me.fullName || me.email).trim();
+  const firstName = name.split(/\s+/)[0] ?? name;
+  const maxStage = hiring ? Math.max(1, ...hiring.byStage.map((s) => s.count)) : 1;
+  const roleLabel = me.roles.map((r) => ROLE_LABELS[r as RoleKey] ?? r).join(" · ");
+
+  const today = new Date().toLocaleDateString(undefined, {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+
+  const accessList = (
+    <ul className="space-y-2.5">
+      {me.capabilities.map((capability) => (
+        <li
+          key={capability}
+          className="flex items-start gap-2.5 text-sm leading-relaxed text-muted-foreground"
+        >
+          <CheckCircle2
+            className="mt-[3px] h-3.5 w-3.5 shrink-0 text-teal"
+            strokeWidth={2.5}
+            aria-hidden="true"
+          />
+          <span className="min-w-0">
+            {CAPABILITY_LABELS[capability as Capability] ?? capability}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+
+  return (
+    <section className="site-shell py-8 lg:py-10">
+      <PageHeader
+        eyebrow={roleLabel || "Team Portal"}
+        title={`${greeting()}, ${firstName}`}
+        subtitle={me.roles[0] ? ROLE_SUMMARIES[me.roles[0] as RoleKey] : undefined}
+        initial={name.charAt(0).toUpperCase()}
+        aside={<p className="text-sm font-semibold text-muted-foreground">{today}</p>}
+      />
+
+      {/* What needs doing comes before what merely happened. */}
+      {hiring ? (
+        <AttentionBar
+          items={[
+            {
+              icon: Clock,
+              label: "applicants are past their step deadline",
+              count: hiring.overdue,
+              to: "/team-portal/applicants",
+            },
+            ...(has("ats.hrFlags")
+              ? [
+                  {
+                    icon: Flag,
+                    label: "HR review flags still need attention",
+                    count: hiring.flagsNeedingReview,
+                    to: "/team-portal/applicants",
+                  },
+                ]
+              : []),
+            {
+              icon: UserCheck,
+              label: "applicants are waiting to confirm a time",
+              count: hiring.awaitingApplicant,
+              to: "/team-portal/applicants",
+            },
+          ]}
+        />
+      ) : null}
+
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-8">
+        {/* ---- Main column ------------------------------------------------ */}
+        <div className="min-w-0">
+          {hiring ? (
+            <>
+              <SectionHeading icon={ClipboardList}>Applicants</SectionHeading>
+              <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <StatCard label="Open" value={hiring.open} hint="Still in process" icon={Inbox} />
+                <StatCard
+                  label="Mine"
+                  value={hiring.assignedToMe}
+                  hint="Assigned to you"
+                  icon={UserRound}
+                />
+                <StatCard
+                  label="Overdue"
+                  value={hiring.overdue}
+                  hint="Past the deadline"
+                  icon={Clock}
+                  tone="alert"
+                />
+                <StatCard
+                  label="Flags"
+                  value={hiring.flagsNeedingReview}
+                  hint="Awaiting review"
+                  icon={Flag}
+                  tone="alert"
+                />
+              </div>
+
+              <SectionHeading icon={TrendingUp}>Pipeline</SectionHeading>
+              <div className="mt-3">
+                <Panel
+                  title={`${hiring.total} application${hiring.total === 1 ? "" : "s"} in total`}
+                >
+                  {hiring.total === 0 ? (
+                    <p className="py-2 text-sm text-muted-foreground">
+                      No applications yet. They will appear here as they are submitted.
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-border/60">
+                      {hiring.byStage.map((stage) => (
+                        <FunnelRow
+                          key={stage.key}
+                          label={stage.label}
+                          value={stage.count}
+                          max={maxStage}
+                          total={hiring.total}
+                          tone={stageTone(stage.key)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </Panel>
+              </div>
+            </>
+          ) : null}
+
+          {accounts ? (
+            <>
+              <SectionHeading icon={Users}>Accounts</SectionHeading>
+              <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <StatCard label="Total" value={accounts.total} icon={Users} />
+                <StatCard label="Active" value={accounts.active} hint="Signed in" />
+                <StatCard label="Invited" value={accounts.invited} hint="No password yet" />
+                <StatCard label="Disabled" value={accounts.disabled} hint="Cannot sign in" />
+              </div>
+            </>
+          ) : null}
+
+          {/* Without applicant access this column would be empty, so the access
+              summary moves here rather than leaving a blank page. */}
+          {!hiring && !accounts ? (
+            <>
+              <SectionHeading icon={ShieldCheck}>Your access</SectionHeading>
+              <div className="mt-3">
+                <Panel title={roleLabel || "No role"}>
+                  {accessList}
+                  <p className="mt-4 border-t border-border pt-4 text-sm leading-relaxed text-muted-foreground">
+                    Your role does not include applicant records. If you need them, ask an
+                    administrator.
+                  </p>
+                </Panel>
+              </div>
+            </>
+          ) : null}
+        </div>
+
+        {/* ---- Sidebar ---------------------------------------------------- */}
+        <aside className="mt-8 lg:mt-0">
+          <SectionHeading icon={LayoutList}>Go to</SectionHeading>
+          <div className="mt-3 rounded-xl border border-border bg-card p-1.5">
+            {has("ats.view") ? (
+              <QuickLink
+                to="/team-portal/applicants"
+                icon={ClipboardList}
+                label="Applicant tracking"
+                meta={
+                  has("ats.manageApplicants") ? "Review and advance applicants" : "Read-only access"
+                }
+              />
+            ) : null}
+            {has("admin.manageUsers") ? (
+              <QuickLink
+                to="/team-portal/staff"
+                icon={Users}
+                label="User access"
+                meta="Accounts, roles and invitations"
+              />
+            ) : null}
+            {has("admin.dashboard") ? (
+              <QuickLink
+                to="/team-portal/admin"
+                icon={ShieldCheck}
+                label="Admin"
+                meta="Figures and the permission matrix"
+              />
+            ) : null}
+            <QuickLink
+              to="/team-portal/account"
+              icon={UserRound}
+              label="My account"
+              meta="Your name and password"
+            />
+          </div>
+
+          {/* Shown here only when the main column has content of its own, so
+              the access list never appears twice. */}
+          {hiring || accounts ? (
+            <>
+              <SectionHeading icon={ShieldCheck}>Your access</SectionHeading>
+              <div className="mt-3">
+                <Panel title={roleLabel || "No role"}>{accessList}</Panel>
+              </div>
+            </>
+          ) : null}
+        </aside>
+      </div>
+    </section>
+  );
+}

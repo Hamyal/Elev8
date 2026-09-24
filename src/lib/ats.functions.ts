@@ -1533,6 +1533,139 @@ export const changeOwnPassword = createServerFn({ method: "POST" })
   });
 
 /* ------------------------------------------------------------------ *
+ * Dashboard — one shape, filled differently per role
+ * ------------------------------------------------------------------ */
+
+export type DashboardData = {
+  me: { fullName: string; email: string; roles: string[]; capabilities: string[] };
+  /** Present only for roles that may see applicant records. */
+  hiring?: {
+    byStage: { key: string; label: string; count: number }[];
+    total: number;
+    open: number;
+    assignedToMe: number;
+    overdue: number;
+    awaitingApplicant: number;
+    flagsNeedingReview: number;
+  };
+  /** Present only for Admin. */
+  accounts?: { total: number; active: number; invited: number; disabled: number };
+};
+
+/**
+ * Everything the portal home needs, for whoever is asking.
+ *
+ * One call rather than one per role, so every dashboard is built from the same
+ * shape and a role that may not see a section simply does not receive it. The
+ * capability check decides what is fetched, and row-level security independently
+ * decides what the queries can return — a Caretaker asking for hiring figures
+ * would get nothing even if this function tried.
+ */
+export const getDashboard = createServerFn({ method: "GET" })
+  .middleware([requireAuth])
+  .handler(async ({ context }): Promise<DashboardData> => {
+    const supabase = context.supabase as unknown as LooseClient;
+    const { capabilitiesFor, can } = await import("@/lib/permissions");
+    const { STATUSES, normalizeStatus } = await import("@/lib/ats-workflow");
+
+    const { data: roleRows } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId);
+    const roles = ((roleRows ?? []) as { role: string }[]).map((r) => r.role);
+
+    const { data: profile } = await supabase
+      .from("staff_profiles")
+      .select("full_name, email")
+      .eq("user_id", context.userId)
+      .maybeSingle();
+
+    const me = {
+      fullName: (profile?.full_name as string | undefined) ?? "",
+      email: (profile?.email as string | undefined) ?? "",
+      roles,
+      capabilities: capabilitiesFor(roles),
+    };
+
+    if (!can(roles, "ats.view")) return { me };
+
+    const { data: apps } = await supabase
+      .from("applications")
+      .select("id, status, assigned_to, milestone_due_at, milestone_completed_at, current_milestone");
+
+    const rows = (apps ?? []) as {
+      id: string;
+      status: string | null;
+      assigned_to: string | null;
+      milestone_due_at: string | null;
+      milestone_completed_at: string | null;
+      current_milestone: string | null;
+    }[];
+
+    const now = Date.now();
+    const counts = new Map<string, number>();
+    for (const row of rows) {
+      const key = normalizeStatus(row.status);
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+
+    const { data: flags } = await supabase
+      .from("hr_review_flags")
+      .select("id, flag_status");
+    const flagsNeedingReview = ((flags ?? []) as { flag_status: string | null }[]).filter(
+      (f) => (f.flag_status ?? "Needs Review") === "Needs Review",
+    ).length;
+
+    const { data: scheduling } = await supabase
+      .from("application_scheduling")
+      .select("application_id, confirmation_state");
+    const awaitingApplicant = (
+      (scheduling ?? []) as { confirmation_state: string | null }[]
+    ).filter((s) => s.confirmation_state === "awaiting_confirmation").length;
+
+    const hiring: DashboardData["hiring"] = {
+      byStage: STATUSES.map((stage) => ({
+        key: stage.key,
+        label: stage.label,
+        count: counts.get(stage.key) ?? 0,
+      })),
+      total: rows.length,
+      open: rows.filter((r) => {
+        const status = normalizeStatus(r.status);
+        return status !== "hired" && status !== "not_selected";
+      }).length,
+      assignedToMe: rows.filter((r) => r.assigned_to === context.userId).length,
+      overdue: rows.filter(
+        (r) =>
+          r.milestone_due_at &&
+          !r.milestone_completed_at &&
+          new Date(r.milestone_due_at).getTime() < now,
+      ).length,
+      awaitingApplicant,
+      flagsNeedingReview,
+    };
+
+    if (!can(roles, "admin.manageUsers")) return { me, hiring };
+
+    const { asServiceRole } = await import("@/server/db");
+    const accounts = await asServiceRole(async (client) => {
+      const { rows: userRows } = await client.query(`
+        select sp.is_active, (u.encrypted_password is not null) as has_password
+          from public.staff_profiles sp
+          join auth.users u on u.id = sp.user_id
+      `);
+      return {
+        total: userRows.length,
+        active: userRows.filter((r) => r.is_active && r.has_password).length,
+        invited: userRows.filter((r) => r.is_active && !r.has_password).length,
+        disabled: userRows.filter((r) => !r.is_active).length,
+      };
+    });
+
+    return { me, hiring, accounts };
+  });
+
+/* ------------------------------------------------------------------ *
  * Admin dashboard
  * ------------------------------------------------------------------ */
 

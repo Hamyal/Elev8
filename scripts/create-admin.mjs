@@ -1,14 +1,17 @@
 /**
- * Creates (or repairs) a Team Portal administrator account.
+ * Creates (or repairs) a Team Portal account with a known password.
  *
  * Under Supabase the first admin arrived through an emailed invitation. With
- * mail delivery now optional, this script is the dependable way in: it creates
- * the auth user, its staff profile, and its role in one go.
+ * mail delivery optional, this script is the dependable way in: it creates the
+ * auth user, its staff profile, and its role in one go, and prints a password
+ * you can actually sign in with. Useful for the first Admin, and for making
+ * one account per role to demonstrate what each can see.
  *
- *   node scripts/create-admin.mjs <email> [password] [full name]
+ *   npm run db:seed-admin -- <email> [role] [password] [full name]
  *
- * Omit the password and one is generated and printed. Running it again for the
- * same address resets that account's password rather than failing.
+ * Role defaults to admin. Omit the password and one is generated and printed.
+ * Running it again for the same address resets that account rather than
+ * failing, so it is safe to repeat.
  */
 import { randomBytes, randomUUID, scrypt as scryptCallback } from "node:crypto";
 import { promisify } from "node:util";
@@ -16,11 +19,23 @@ import pg from "pg";
 
 const scrypt = promisify(scryptCallback);
 
-const [email, passwordArg, ...nameParts] = process.argv.slice(2);
-const fullName = nameParts.join(" ") || "Elev8 Administrator";
+const ROLES = ["admin", "hr", "viewer", "employee", "caretaker"];
+
+const args = process.argv.slice(2);
+const email = args[0];
+
+// The role is optional and sits in the second slot, so accept it only when it
+// actually names a role -- otherwise that argument is the password.
+const role = ROLES.includes((args[1] ?? "").toLowerCase()) ? args[1].toLowerCase() : "admin";
+const rest = role === (args[1] ?? "").toLowerCase() ? args.slice(2) : args.slice(1);
+
+const passwordArg = rest[0];
+const fullName =
+  rest.slice(1).join(" ") || `Elev8 ${role.charAt(0).toUpperCase()}${role.slice(1)}`;
 
 if (!email || !email.includes("@")) {
-  console.error("Usage: node scripts/create-admin.mjs <email> [password] [full name]");
+  console.error("Usage: npm run db:seed-admin -- <email> [role] [password] [full name]");
+  console.error(`Roles: ${ROLES.join(", ")} (default: admin)`);
   process.exit(1);
 }
 
@@ -62,11 +77,13 @@ try {
     [userId, fullName, email],
   );
 
+  // One role per account: replace whatever was there rather than adding to it.
+  await client.query("DELETE FROM public.user_roles WHERE user_id = $1", [userId]);
   await client.query(
     `INSERT INTO public.user_roles (user_id, role)
-     VALUES ($1, 'admin')
+     VALUES ($1, $2::public.app_role)
      ON CONFLICT (user_id, role) DO NOTHING`,
-    [userId],
+    [userId, role],
   );
 
   // Any existing session for this account is invalidated by the password change.

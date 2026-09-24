@@ -2,8 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowLeft, ChevronDown, Loader2, LogOut, Search, ShieldCheck } from "lucide-react";
-import { signOut } from "@/lib/auth-client";
+import { ArrowLeft, ChevronDown, Loader2, Search, ShieldCheck } from "lucide-react";
 import { CommunicationLog } from "@/components/ats/CommunicationLog";
 import { SchedulingPanel } from "@/components/ats/SchedulingPanel";
 import { ApplicantRecordPanel } from "@/components/ats/ApplicantRecordPanel";
@@ -158,14 +157,18 @@ function dueTime(row: ApplicantRow) {
 }
 
 function queueTiming(row: ApplicantRow): { label: string; urgent: boolean } {
-  if (normalizeStatus(row.status) === "not_selected") return { label: "No action due", urgent: false };
+  if (normalizeStatus(row.status) === "not_selected")
+    return { label: "No action due", urgent: false };
   if (!row.dueAt) return { label: "No due date", urgent: false };
   const due = new Date(row.dueAt);
   const days = dueDayOffset(row);
   const time = due.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   if (isOverdue(row)) {
     const late = Math.abs(days ?? 0);
-    return { label: late <= 0 ? "Overdue" : `${late} day${late === 1 ? "" : "s"} overdue`, urgent: true };
+    return {
+      label: late <= 0 ? "Overdue" : `${late} day${late === 1 ? "" : "s"} overdue`,
+      urgent: true,
+    };
   }
   if (days === 0) return { label: `Due today, ${time}`, urgent: true };
   if (days === 1) return { label: `Due tomorrow, ${time}`, urgent: true };
@@ -238,7 +241,8 @@ function ApplicantsDashboard() {
     });
   }, [rows, stage, filters, query, myId, queueMode]);
 
-  const selected = (selectedId ? rows.find((r) => r.id === selectedId) : null) ?? visible[0] ?? null;
+  const selected =
+    (selectedId ? rows.find((r) => r.id === selectedId) : null) ?? visible[0] ?? null;
   const selectedIndex = selected ? visible.findIndex((r) => r.id === selected.id) : -1;
 
   const openApplicant = (id: string) => {
@@ -248,13 +252,6 @@ function ApplicantsDashboard() {
     setSelectedId(id);
     setMobileScreen("applicant");
   };
-
-  async function handleSignOut() {
-    await queryClient.cancelQueries();
-    queryClient.clear();
-    await signOut();
-    navigate({ to: "/team-portal", replace: true });
-  }
 
   const accessError = access.error instanceof Error ? access.error.message : null;
   const listError = list.error instanceof Error ? list.error.message : null;
@@ -272,33 +269,13 @@ function ApplicantsDashboard() {
       <div className="border-b border-border bg-secondary/60 px-4 py-2">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <Link to="/team-portal" className="inline-flex items-center gap-1 font-semibold text-teal">
-              <ArrowLeft className="size-3.5" aria-hidden="true" />
-              Team Portal
-            </Link>
             <span className="inline-flex items-center gap-1.5 text-muted-foreground">
               <ShieldCheck className="size-3.5 text-teal" aria-hidden="true" />
               {access.data?.roles.length
                 ? access.data.roles.map((r) => r.toUpperCase()).join(" · ")
                 : "checking access…"}
             </span>
-            {access.data?.isAdmin ? (
-              <Link to="/team-portal/admin" className="font-semibold text-teal underline underline-offset-4">
-                Admin
-              </Link>
-            ) : null}
-            <Link to="/team-portal/account" className="font-semibold text-teal underline underline-offset-4">
-              My account
-            </Link>
           </div>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="inline-flex items-center gap-1.5 font-semibold text-primary"
-          >
-            <LogOut className="size-3.5 text-teal" aria-hidden="true" />
-            Sign out
-          </button>
         </div>
       </div>
 
@@ -363,12 +340,18 @@ function ApplicantsDashboard() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="mt-3 w-full justify-between bg-background font-medium">
+              <Button
+                variant="outline"
+                className="mt-3 w-full justify-between bg-background font-medium"
+              >
                 Queue: {QUEUE_LABELS[queueMode]}
                 <ChevronDown className="size-4" aria-hidden />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="start">
+            <DropdownMenuContent
+              className="w-[var(--radix-dropdown-menu-trigger-width)]"
+              align="start"
+            >
               <DropdownMenuLabel className="text-xs uppercase text-muted-foreground">
                 Work queues
               </DropdownMenuLabel>
@@ -376,13 +359,13 @@ function ApplicantsDashboard() {
                 value={queueMode}
                 onValueChange={(value) => setQueueMode(value as QueueMode)}
               >
-                {(["urgent", "attention", "overdue", "today", "awaiting", "mine"] as QueueMode[]).map(
-                  (mode) => (
-                    <DropdownMenuRadioItem key={mode} value={mode}>
-                      {QUEUE_LABELS[mode]}
-                    </DropdownMenuRadioItem>
-                  ),
-                )}
+                {(
+                  ["urgent", "attention", "overdue", "today", "awaiting", "mine"] as QueueMode[]
+                ).map((mode) => (
+                  <DropdownMenuRadioItem key={mode} value={mode}>
+                    {QUEUE_LABELS[mode]}
+                  </DropdownMenuRadioItem>
+                ))}
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel className="text-xs uppercase text-muted-foreground">
                   Other ordering
@@ -477,7 +460,9 @@ function ApplicantsDashboard() {
                           {row.openFlagCount ? (
                             <span
                               className={cn(
-                                selectedRow ? "text-review-needs" : "lg:text-focus-faded-supporting",
+                                selectedRow
+                                  ? "text-review-needs"
+                                  : "lg:text-focus-faded-supporting",
                               )}
                             >
                               {` · ${row.openFlagCount} HR review${row.openFlagCount === 1 ? "" : "s"}`}
@@ -691,11 +676,12 @@ function ApplicantDetailPanel({
       <div className="flex flex-col gap-4 px-6 py-10">
         {backToQueue}
         <p className="text-sm font-semibold text-accent">
-          {detail.error instanceof Error ? detail.error.message : "This record could not be loaded."}
+          {detail.error instanceof Error
+            ? detail.error.message
+            : "This record could not be loaded."}
         </p>
       </div>
     );
-
 
   const data = detail.data as ApplicantDetail;
 
@@ -783,7 +769,6 @@ function ApplicantDetailPanel({
         />
       }
 
-
       schedulingPanel={
         <SchedulingPanel
           data={data}
@@ -840,7 +825,6 @@ function ApplicantDetailPanel({
           }}
         />
       }
-
     />
   );
 }

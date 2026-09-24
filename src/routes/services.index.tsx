@@ -25,8 +25,8 @@ export const Route = createFileRoute("/services/")({
 
 function Services() {
   return (
-    <div className="mx-auto max-w-7xl px-4 py-14">
-      <div className="mx-auto max-w-2xl text-center">
+    <div className="site-shell max-w-7xl py-14">
+      <div className="site-shell max-w-2xl text-center">
         <h1 className="text-3xl font-extrabold text-primary lg:text-4xl">
           Our Services
         </h1>

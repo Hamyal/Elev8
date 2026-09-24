@@ -42,7 +42,7 @@ const PROGRAMS = [
 
 function Programs() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-14">
+    <div className="site-shell max-w-3xl py-14">
       <h1 className="text-3xl font-extrabold text-primary lg:text-4xl">
         Our Programs
       </h1>

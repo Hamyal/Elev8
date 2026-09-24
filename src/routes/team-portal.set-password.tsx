@@ -79,7 +79,7 @@ function SetPasswordPage() {
 
   return (
     <section className="bg-background">
-      <div className="mx-auto flex max-w-3xl flex-col items-center px-4 py-20 text-center">
+      <div className="site-shell flex max-w-3xl flex-col items-center px-4 py-20 text-center">
         <span className="flex h-16 w-16 items-center justify-center rounded-full bg-teal/10">
           <KeyRound className="h-8 w-8 text-teal" strokeWidth={1.5} />
         </span>
